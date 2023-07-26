@@ -24,7 +24,7 @@ pub fn versionCheck(comptime glibc_version: std.SemanticVersion) type {
     return struct {
         pub const ok = blk: {
             if (!builtin.link_libc) break :blk false;
-            if (builtin.abi.isMusl()) break :blk true;
+            if (builtin.abi.isMusl() or builtin.os.tag == .android) break :blk true;
             if (builtin.target.isGnuLibC()) {
                 const ver = builtin.os.version_range.linux.glibc;
                 const order = ver.order(glibc_version);
@@ -40,7 +40,7 @@ pub fn versionCheck(comptime glibc_version: std.SemanticVersion) type {
 }
 
 pub usingnamespace switch (builtin.os.tag) {
-    .linux => @import("c/linux.zig"),
+    .linux, .android => @import("c/linux.zig"),
     .windows => @import("c/windows.zig"),
     .macos, .ios, .tvos, .watchos => @import("c/darwin.zig"),
     .freebsd, .kfreebsd => @import("c/freebsd.zig"),
@@ -408,11 +408,11 @@ pub extern "c" fn setlogmask(maskpri: c_int) c_int;
 
 pub extern "c" fn if_nametoindex([*:0]const u8) c_int;
 
-pub usingnamespace if (builtin.target.isAndroid()) struct {
+pub usingnamespace if (builtin.target.isAndroid() and builtin.os.tag != .android) struct {
     // android bionic libc does not implement getcontext,
     // and std.os.linux.getcontext also cannot be built for
     // bionic libc currently.
-} else if (builtin.os.tag == .linux and builtin.target.isMusl()) struct {
+} else if (builtin.os.tag == .linux and builtin.target.isMusl() or builtin.os.tag == .android) struct {
     // musl does not implement getcontext
     pub const getcontext = std.os.linux.getcontext;
 } else struct {

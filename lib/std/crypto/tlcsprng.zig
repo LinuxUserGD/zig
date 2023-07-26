@@ -21,6 +21,7 @@ const os_has_fork = switch (builtin.os.tag) {
     .ios,
     .kfreebsd,
     .linux,
+    .android,
     .macos,
     .netbsd,
     .openbsd,

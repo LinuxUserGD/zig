@@ -38,7 +38,7 @@ pub fn detect(cross_target: CrossTarget) DetectError!NativeTargetInfo {
     var os = cross_target.getOsTag().defaultVersionRange(cross_target.getCpuArch());
     if (cross_target.os_tag == null) {
         switch (builtin.target.os.tag) {
-            .linux => {
+            .linux, .android => {
                 const uts = std.os.uname();
                 const release = mem.sliceTo(&uts.release, 0);
                 // The release field sometimes has a weird format,
@@ -165,7 +165,7 @@ pub fn detect(cross_target: CrossTarget) DetectError!NativeTargetInfo {
     if (cross_target.os_version_min) |min| switch (min) {
         .none => {},
         .semver => |semver| switch (cross_target.getOsTag()) {
-            .linux => os.version_range.linux.range.min = semver,
+            .linux, .android => os.version_range.linux.range.min = semver,
             else => os.version_range.semver.min = semver,
         },
         .windows => |win_ver| os.version_range.windows.min = win_ver,
@@ -174,7 +174,7 @@ pub fn detect(cross_target: CrossTarget) DetectError!NativeTargetInfo {
     if (cross_target.os_version_max) |max| switch (max) {
         .none => {},
         .semver => |semver| switch (cross_target.getOsTag()) {
-            .linux => os.version_range.linux.range.max = semver,
+            .linux, .android => os.version_range.linux.range.max = semver,
             else => os.version_range.semver.max = semver,
         },
         .windows => |win_ver| os.version_range.windows.max = win_ver,
@@ -280,7 +280,7 @@ fn detectAbiAndDynamicLinker(
     cross_target: CrossTarget,
 ) DetectError!NativeTargetInfo {
     const native_target_has_ld = comptime builtin.target.hasDynamicLinker();
-    const is_linux = builtin.target.os.tag == .linux;
+    const is_linux = (builtin.target.os.tag == .linux or builtin.target.os.tag == .android);
     const have_all_info = cross_target.dynamic_linker.get() != null and
         cross_target.abi != null and (!is_linux or cross_target.abi.?.isGnu());
     const os_is_non_native = cross_target.os_tag != null;
@@ -954,7 +954,7 @@ fn detectNativeCpuAndFeatures(cpu_arch: Target.Cpu.Arch, os: Target.Os, cross_ta
     }
 
     switch (builtin.os.tag) {
-        .linux => return linux.detectNativeCpuAndFeatures(),
+        .linux, .android => return linux.detectNativeCpuAndFeatures(),
         .macos => return darwin.macos.detectNativeCpuAndFeatures(),
         .windows => return windows.detectNativeCpuAndFeatures(),
         else => {},

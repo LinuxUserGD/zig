@@ -35,7 +35,7 @@ pub fn Watch(comptime V: type) type {
         const OsData = switch (builtin.os.tag) {
             // TODO https://github.com/ziglang/zig/issues/3778
             .macos, .freebsd, .netbsd, .dragonfly, .openbsd => KqOsData,
-            .linux => LinuxOsData,
+            .linux, .android => LinuxOsData,
             .windows => WindowsOsData,
 
             else => @compileError("Unsupported OS"),
@@ -101,7 +101,7 @@ pub fn Watch(comptime V: type) type {
             errdefer allocator.destroy(self);
 
             switch (builtin.os.tag) {
-                .linux => {
+                .linux, .android => {
                     const inotify_fd = try os.inotify_init1(os.linux.IN_NONBLOCK | os.linux.IN_CLOEXEC);
                     errdefer os.close(inotify_fd);
 
@@ -169,7 +169,7 @@ pub fn Watch(comptime V: type) type {
                         self.allocator.destroy(value);
                     }
                 },
-                .linux => {
+                .linux, .android => {
                     self.os_data.cancelled = true;
                     {
                         // Remove all directory watches linuxEventPutter will take care of
@@ -219,7 +219,7 @@ pub fn Watch(comptime V: type) type {
         pub fn addFile(self: *Self, file_path: []const u8, value: V) !?V {
             switch (builtin.os.tag) {
                 .macos, .freebsd, .netbsd, .dragonfly, .openbsd => return addFileKEvent(self, file_path, value),
-                .linux => return addFileLinux(self, file_path, value),
+                .linux, .android => return addFileLinux(self, file_path, value),
                 .windows => return addFileWindows(self, file_path, value),
                 else => @compileError("Unsupported OS"),
             }
@@ -518,7 +518,7 @@ pub fn Watch(comptime V: type) type {
 
         pub fn removeFile(self: *Self, file_path: []const u8) !?V {
             switch (builtin.os.tag) {
-                .linux => {
+                .linux, .android => {
                     const dirname = std.fs.path.dirname(file_path) orelse if (file_path[0] == '/') "/" else ".";
                     const basename = std.fs.path.basename(file_path);
 

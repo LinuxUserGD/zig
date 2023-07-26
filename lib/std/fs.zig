@@ -39,7 +39,7 @@ pub const Watch = @import("fs/watch.zig").Watch;
 /// fit into a UTF-8 encoded array of this length.
 /// The byte count includes room for a null sentinel byte.
 pub const MAX_PATH_BYTES = switch (builtin.os.tag) {
-    .linux, .macos, .ios, .freebsd, .openbsd, .netbsd, .dragonfly, .haiku, .solaris, .plan9 => os.PATH_MAX,
+    .linux, .macos, .ios, .freebsd, .openbsd, .netbsd, .dragonfly, .haiku, .solaris, .plan9, .android => os.PATH_MAX,
     // Each UTF-16LE character may be expanded to 3 UTF-8 bytes.
     // If it would require 4 UTF-8 bytes, then there would be a surrogate
     // pair in the UTF-16LE, and we (over)account 3 bytes for it that way.
@@ -59,7 +59,7 @@ pub const MAX_PATH_BYTES = switch (builtin.os.tag) {
 /// (depending on the platform) this assumption may not hold for every configuration.
 /// The byte count does not include a null sentinel byte.
 pub const MAX_NAME_BYTES = switch (builtin.os.tag) {
-    .linux, .macos, .ios, .freebsd, .openbsd, .netbsd, .dragonfly => os.NAME_MAX,
+    .linux, .macos, .ios, .freebsd, .openbsd, .netbsd, .dragonfly, .android => os.NAME_MAX,
     // Haiku's NAME_MAX includes the null terminator, so subtract one.
     .haiku => os.NAME_MAX - 1,
     .solaris => os.system.MAXNAMLEN,
@@ -621,11 +621,11 @@ pub const IterableDir = struct {
                 self.first_iter = true;
             }
         },
-        .linux => struct {
+        .linux, .android => struct {
             dir: Dir,
             // The if guard is solely there to prevent compile errors from missing `linux.dirent64`
             // definition when compiling for other OSes. It doesn't do anything when compiling for Linux.
-            buf: [1024]u8 align(if (builtin.os.tag != .linux) 1 else @alignOf(linux.dirent64)),
+            buf: [1024]u8 align(if (builtin.os.tag != .linux and builtin.os.tag != .android) 1 else @alignOf(linux.dirent64)),
             index: usize,
             end_index: usize,
             first_iter: bool,
@@ -906,7 +906,7 @@ pub const IterableDir = struct {
                 .buf = undefined,
                 .first_iter = first_iter_start_value,
             },
-            .linux, .haiku => return Iterator{
+            .linux, .haiku, .android => return Iterator{
                 .dir = self.dir,
                 .index = 0,
                 .end_index = 0,
@@ -1528,7 +1528,7 @@ pub const Dir = struct {
             return self.realpathW(pathname_w.span(), out_buffer);
         }
 
-        const flags = if (builtin.os.tag == .linux) os.O.PATH | os.O.NONBLOCK | os.O.CLOEXEC else os.O.NONBLOCK | os.O.CLOEXEC;
+        const flags = if (builtin.os.tag == .linux or builtin.os.tag == .android) os.O.PATH | os.O.NONBLOCK | os.O.CLOEXEC else os.O.NONBLOCK | os.O.CLOEXEC;
         const fd = os.openatZ(self.fd, pathname, flags, 0) catch |err| switch (err) {
             error.FileLocksNotSupported => unreachable,
             else => |e| return e,
@@ -2941,7 +2941,7 @@ pub const OpenSelfExeError = error{
 } || os.OpenError || SelfExePathError || os.FlockError;
 
 pub fn openSelfExe(flags: File.OpenFlags) OpenSelfExeError!File {
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         return openFileAbsoluteZ("/proc/self/exe", flags);
     }
     if (builtin.os.tag == .windows) {
@@ -3004,7 +3004,7 @@ pub fn selfExePath(out_buffer: []u8) SelfExePathError![]u8 {
         return result;
     }
     switch (builtin.os.tag) {
-        .linux => return os.readlinkZ("/proc/self/exe", out_buffer),
+        .linux, .android => return os.readlinkZ("/proc/self/exe", out_buffer),
         .solaris => return os.readlinkZ("/proc/self/path/a.out", out_buffer),
         .freebsd, .dragonfly => {
             var mib = [4]c_int{ os.CTL.KERN, os.KERN.PROC, os.KERN.PROC_PATHNAME, -1 };
@@ -3130,7 +3130,7 @@ fn copy_file(fd_in: os.fd_t, fd_out: os.fd_t, maybe_size: ?u64) CopyFileRawError
         }
     }
 
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         // Try copy_file_range first as that works at the FS level and is the
         // most efficient method (if available).
         var offset: u64 = 0;

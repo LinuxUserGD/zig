@@ -6,19 +6,19 @@ const mem = std.mem;
 pub fn supportsUnwinding(target: std.Target) bool {
     return switch (target.cpu.arch) {
         .x86 => switch (target.os.tag) {
-            .linux, .netbsd, .solaris => true,
+            .linux, .android, .netbsd, .solaris => true,
             else => false,
         },
         .x86_64 => switch (target.os.tag) {
-            .linux, .netbsd, .freebsd, .openbsd, .macos, .ios, .solaris => true,
+            .linux, .android, .netbsd, .freebsd, .openbsd, .macos, .ios, .solaris => true,
             else => false,
         },
         .arm => switch (target.os.tag) {
-            .linux => true,
+            .linux, .android => true,
             else => false,
         },
         .aarch64 => switch (target.os.tag) {
-            .linux, .netbsd, .freebsd, .macos, .ios => true,
+            .linux, .android, .netbsd, .freebsd, .macos, .ios => true,
             else => false,
         },
         else => false,
@@ -194,7 +194,7 @@ pub fn regBytes(
     const ucontext_ptr = thread_context_ptr;
     return switch (builtin.cpu.arch) {
         .x86 => switch (builtin.os.tag) {
-            .linux, .netbsd, .solaris => switch (reg_number) {
+            .linux, .netbsd, .solaris, .android => switch (reg_number) {
                 0 => mem.asBytes(&ucontext_ptr.mcontext.gregs[os.REG.EAX]),
                 1 => mem.asBytes(&ucontext_ptr.mcontext.gregs[os.REG.ECX]),
                 2 => mem.asBytes(&ucontext_ptr.mcontext.gregs[os.REG.EDX]),
@@ -229,7 +229,7 @@ pub fn regBytes(
             else => error.UnimplementedOs,
         },
         .x86_64 => switch (builtin.os.tag) {
-            .linux, .solaris => switch (reg_number) {
+            .linux, .solaris, .android => switch (reg_number) {
                 0 => mem.asBytes(&ucontext_ptr.mcontext.gregs[os.REG.RAX]),
                 1 => mem.asBytes(&ucontext_ptr.mcontext.gregs[os.REG.RDX]),
                 2 => mem.asBytes(&ucontext_ptr.mcontext.gregs[os.REG.RCX]),
@@ -315,7 +315,7 @@ pub fn regBytes(
             else => error.UnimplementedOs,
         },
         .arm => switch (builtin.os.tag) {
-            .linux => switch (reg_number) {
+            .linux, .android => switch (reg_number) {
                 0 => mem.asBytes(&ucontext_ptr.mcontext.arm_r0),
                 1 => mem.asBytes(&ucontext_ptr.mcontext.arm_r1),
                 2 => mem.asBytes(&ucontext_ptr.mcontext.arm_r2),

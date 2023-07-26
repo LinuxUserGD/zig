@@ -464,7 +464,7 @@ test "Dir.Iterator but dir is deleted during iteration" {
     try std.testing.expect(entry == null);
 
     // On Linux, we can opt-in to receiving a more specific error by calling `nextLinux`
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         try std.testing.expectError(error.DirNotFound, iterator.nextLinux());
     }
 }

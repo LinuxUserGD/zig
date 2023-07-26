@@ -7,7 +7,8 @@ const Allocator = std.mem.Allocator;
 const is_darwin = builtin.target.isDarwin();
 const is_windows = builtin.target.os.tag == .windows;
 const is_haiku = builtin.target.os.tag == .haiku;
-
+const is_android = builtin.target.os.tag == .android;
+const is_wasi = builtin.target.os.tag == .wasi;
 const log = std.log.scoped(.libc_installation);
 
 const ZigWindowsSDK = @import("windows_sdk.zig").ZigWindowsSDK;
@@ -219,8 +220,13 @@ pub const LibCInstallation = struct {
                 .freebsd, .netbsd, .openbsd, .dragonfly => self.crt_dir = try args.allocator.dupeZ(u8, "/usr/lib"),
                 .solaris => self.crt_dir = try args.allocator.dupeZ(u8, "/usr/lib/64"),
                 .linux => try self.findNativeCrtDirPosix(args),
+                .android => try self.findNativeCrtBeginDirAndroid(args),
                 else => {},
             }
+        } else if (is_android) {
+            try self.findNativeIncludeDirPosix(args);
+            try self.findNativeCrtBeginDirAndroid(args);
+        } else if (is_wasi) {
         } else {
             return error.LibCRuntimeNotFound;
         }
@@ -461,6 +467,15 @@ pub const LibCInstallation = struct {
         self.gcc_dir = try ccPrintFileName(.{
             .allocator = args.allocator,
             .search_basename = "crtbeginS.o",
+            .want_dirname = .only_dir,
+            .verbose = args.verbose,
+        });
+    }
+
+    fn findNativeCrtBeginDirAndroid(self: *LibCInstallation, args: FindNativeOptions) FindError!void {
+        self.crt_dir = try ccPrintFileName(.{
+            .allocator = args.allocator,
+            .search_basename = "crtbegin_dynamic.o",
             .want_dirname = .only_dir,
             .verbose = args.verbose,
         });

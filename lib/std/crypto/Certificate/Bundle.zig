@@ -58,7 +58,7 @@ pub const RescanError = RescanLinuxError || RescanMacError || RescanBSDError || 
 /// found, this function clears the set of certificates.
 pub fn rescan(cb: *Bundle, gpa: Allocator) RescanError!void {
     switch (builtin.os.tag) {
-        .linux => return rescanLinux(cb, gpa),
+        .linux, .android => return rescanLinux(cb, gpa),
         .macos => return rescanMac(cb, gpa),
         .freebsd, .openbsd => return rescanBSD(cb, gpa, "/etc/ssl/cert.pem"),
         .netbsd => return rescanBSD(cb, gpa, "/etc/openssl/certs/ca-certificates.crt"),

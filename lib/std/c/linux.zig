@@ -109,7 +109,9 @@ pub const _errno = switch (native_abi) {
     .android => struct {
         extern fn __errno() *c_int;
     }.__errno,
-    else => struct {
+    else => if (builtin.os.tag == .android) struct {
+        extern fn __errno() *c_int;
+    }.__errno else struct {
         extern "c" fn __errno_location() *c_int;
     }.__errno_location,
 };
@@ -335,7 +337,15 @@ pub const pthread_rwlock_t = switch (native_abi) {
         },
         else => @compileError("impossible pointer size"),
     },
-    else => extern struct {
+    else => if (builtin.os.tag == .android) switch (@sizeOf(usize)) {
+        4 => extern struct {
+            size: [40]u8 align(@alignOf(usize)) = [_]u8{0} ** 40,
+        },
+        8 => extern struct {
+            size: [56]u8 align(@alignOf(usize)) = [_]u8{0} ** 56,
+        },
+        else => @compileError("impossible pointer size"),
+    } else extern struct {
         size: [56]u8 align(@alignOf(usize)) = [_]u8{0} ** 56,
     },
 };
@@ -354,7 +364,7 @@ const __SIZEOF_PTHREAD_MUTEX_T = switch (native_abi) {
         else => if (@sizeOf(usize) == 8) 40 else 24,
     },
     .android => if (@sizeOf(usize) == 8) 40 else 4,
-    else => @compileError("unsupported ABI"),
+    else => if (builtin.os.tag == .android) (if (@sizeOf(usize) == 8) 40 else 4) else @compileError("unsupported ABI"),
 };
 const __SIZEOF_SEM_T = 4 * @sizeOf(usize);
 
