@@ -69,7 +69,7 @@ pub const Loop = struct {
 
         pub const EventFd = switch (builtin.os.tag) {
             .macos, .ios, .tvos, .watchos, .freebsd, .netbsd, .dragonfly, .openbsd => KEventFd,
-            .linux => struct {
+            .linux, .android => struct {
                 base: ResumeNode,
                 epoll_op: u32,
                 eventfd: i32,
@@ -88,7 +88,7 @@ pub const Loop = struct {
 
         pub const Basic = switch (builtin.os.tag) {
             .macos, .ios, .tvos, .watchos, .freebsd, .netbsd, .dragonfly, .openbsd => KEventBasic,
-            .linux => struct {
+            .linux, .android => struct {
                 base: ResumeNode,
             },
             .windows => struct {
@@ -216,7 +216,7 @@ pub const Loop = struct {
 
     fn initOsData(self: *Loop, extra_thread_count: usize) InitOsDataError!void {
         nosuspend switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 errdefer {
                     while (self.available_eventfd_resume_nodes.pop()) |node| os.close(node.data.eventfd);
                 }
@@ -455,7 +455,7 @@ pub const Loop = struct {
 
     fn deinitOsData(self: *Loop) void {
         nosuspend switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 os.close(self.os_data.final_eventfd);
                 while (self.available_eventfd_resume_nodes.pop()) |node| os.close(node.data.eventfd);
                 os.close(self.os_data.epollfd);
@@ -552,7 +552,7 @@ pub const Loop = struct {
 
     pub fn waitUntilFdReadable(self: *Loop, fd: os.fd_t) void {
         switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 self.linuxWaitFd(fd, os.linux.EPOLL.ET | os.linux.EPOLL.ONESHOT | os.linux.EPOLL.IN);
             },
             .macos, .ios, .tvos, .watchos, .freebsd, .netbsd, .dragonfly, .openbsd => {
@@ -564,7 +564,7 @@ pub const Loop = struct {
 
     pub fn waitUntilFdWritable(self: *Loop, fd: os.fd_t) void {
         switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 self.linuxWaitFd(fd, os.linux.EPOLL.ET | os.linux.EPOLL.ONESHOT | os.linux.EPOLL.OUT);
             },
             .macos, .ios, .tvos, .watchos, .freebsd, .netbsd, .dragonfly, .openbsd => {
@@ -576,7 +576,7 @@ pub const Loop = struct {
 
     pub fn waitUntilFdWritableOrReadable(self: *Loop, fd: os.fd_t) void {
         switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 self.linuxWaitFd(fd, os.linux.EPOLL.ET | os.linux.EPOLL.ONESHOT | os.linux.EPOLL.OUT | os.linux.EPOLL.IN);
             },
             .macos, .ios, .tvos, .watchos, .freebsd, .netbsd, .dragonfly, .openbsd => {
@@ -657,7 +657,7 @@ pub const Loop = struct {
                         return;
                     };
                 },
-                .linux => {
+                .linux, .android => {
                     // the pending count is already accounted for
                     const epoll_events = os.linux.EPOLL.ONESHOT | os.linux.EPOLL.IN | os.linux.EPOLL.OUT |
                         os.linux.EPOLL.ET;
@@ -710,6 +710,7 @@ pub const Loop = struct {
         if (!builtin.single_threaded) {
             switch (builtin.os.tag) {
                 .linux,
+                .android,
                 .macos,
                 .ios,
                 .tvos,
@@ -797,7 +798,7 @@ pub const Loop = struct {
             self.posixFsRequest(&self.fs_end_request);
 
             switch (builtin.os.tag) {
-                .linux => {
+                .linux, .android => {
                     // writing to the eventfd will only wake up one thread, thus multiple writes
                     // are needed to wakeup all the threads
                     var i: usize = 0;
@@ -1410,7 +1411,7 @@ pub const Loop = struct {
             }
 
             switch (builtin.os.tag) {
-                .linux => {
+                .linux, .android => {
                     // only process 1 event so we don't steal from other threads
                     var events: [1]os.linux.epoll_event = undefined;
                     const count = os.epoll_wait(self.os_data.epollfd, events[0..], -1);
@@ -1559,7 +1560,7 @@ pub const Loop = struct {
     }
 
     const OsData = switch (builtin.os.tag) {
-        .linux => LinuxOsData,
+        .linux, .android => LinuxOsData,
         .macos, .ios, .tvos, .watchos, .freebsd, .netbsd, .dragonfly, .openbsd => KEventData,
         .windows => struct {
             io_port: windows.HANDLE,

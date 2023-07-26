@@ -603,7 +603,7 @@ pub const File = struct {
         /// You may use the `inner` field to use platform-specific functionality
         inner: switch (builtin.os.tag) {
             .windows => MetadataWindows,
-            .linux => MetadataLinux,
+            .linux, .android => MetadataLinux,
             else => MetadataUnix,
         },
 
@@ -872,7 +872,7 @@ pub const File = struct {
                         .creation_time = windows.fromSysTime(info.BasicInformation.CreationTime),
                     };
                 },
-                .linux => blk: {
+                .linux, .android => blk: {
                     var stx = mem.zeroes(os.linux.Statx);
                     const rcx = os.linux.statx(self.handle, "\x00", os.linux.AT.EMPTY_PATH, os.linux.STATX_TYPE | os.linux.STATX_MODE | os.linux.STATX_ATIME | os.linux.STATX_MTIME | os.linux.STATX_BTIME, &stx);
 

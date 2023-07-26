@@ -204,7 +204,7 @@ pub const Instant = struct {
         const clock_id = switch (builtin.os.tag) {
             .macos, .ios, .tvos, .watchos => os.CLOCK.UPTIME_RAW,
             .freebsd, .dragonfly => os.CLOCK.MONOTONIC_FAST,
-            .linux => os.CLOCK.BOOTTIME,
+            .linux, .android => os.CLOCK.BOOTTIME,
             else => os.CLOCK.MONOTONIC,
         };
 

@@ -959,7 +959,7 @@ pub const UserInfo = struct {
 /// POSIX function which gets a uid from username.
 pub fn getUserInfo(name: []const u8) !UserInfo {
     return switch (builtin.os.tag) {
-        .linux, .macos, .watchos, .tvos, .ios, .freebsd, .netbsd, .openbsd, .haiku, .solaris => posixGetUserInfo(name),
+        .linux, .android, .macos, .watchos, .tvos, .ios, .freebsd, .netbsd, .openbsd, .haiku, .solaris => posixGetUserInfo(name),
         else => @compileError("Unsupported OS"),
     };
 }
@@ -1070,7 +1070,7 @@ pub fn posixGetUserInfo(name: []const u8) !UserInfo {
 
 pub fn getBaseAddress() usize {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .android => {
             const base = os.system.getauxval(std.elf.AT_BASE);
             if (base != 0) {
                 return base;
@@ -1160,7 +1160,7 @@ pub const TotalSystemMemoryError = error{
 /// Returns the total system memory, in bytes.
 pub fn totalSystemMemory() TotalSystemMemoryError!usize {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .android => {
             return totalSystemMemoryLinux() catch return error.UnknownTotalSystemMemory;
         },
         .freebsd => {

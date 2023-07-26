@@ -469,7 +469,7 @@ pub fn populateMissingMetadata(self: *Elf) !void {
         const file_size = @as(u64, ptr_size) * self.base.options.symbol_count_hint;
         // We really only need ptr alignment but since we are using PROGBITS, linux requires
         // page align.
-        const p_align = if (self.base.options.target.os.tag == .linux) self.page_size else @as(u16, ptr_size);
+        const p_align = if (self.base.options.target.os.tag == .linux or self.base.options.target.os.tag == .android) self.page_size else @as(u16, ptr_size);
         const off = self.findFreeSpace(file_size, p_align);
         log.debug("found PT_LOAD GOT free space 0x{x} to 0x{x}", .{ off, off + file_size });
         // TODO instead of hard coding the vaddr, make a function to find a vaddr to put things at.
@@ -494,7 +494,7 @@ pub fn populateMissingMetadata(self: *Elf) !void {
         // TODO Find a hint about how much data need to be in rodata ?
         const file_size = 1024;
         // Same reason as for GOT
-        const p_align = if (self.base.options.target.os.tag == .linux) self.page_size else @as(u16, ptr_size);
+        const p_align = if (self.base.options.target.os.tag == .linux or self.base.options.target.os.tag == .android) self.page_size else @as(u16, ptr_size);
         const off = self.findFreeSpace(file_size, p_align);
         log.debug("found PT_LOAD RO free space 0x{x} to 0x{x}", .{ off, off + file_size });
         // TODO Same as for GOT
@@ -517,7 +517,7 @@ pub fn populateMissingMetadata(self: *Elf) !void {
         // TODO Find a hint about how much data need to be in data ?
         const file_size = 1024;
         // Same reason as for GOT
-        const p_align = if (self.base.options.target.os.tag == .linux) self.page_size else @as(u16, ptr_size);
+        const p_align = if (self.base.options.target.os.tag == .linux or self.base.options.target.os.tag == .android) self.page_size else @as(u16, ptr_size);
         const off = self.findFreeSpace(file_size, p_align);
         log.debug("found PT_LOAD RW free space 0x{x} to 0x{x}", .{ off, off + file_size });
         // TODO Same as for GOT
@@ -537,7 +537,7 @@ pub fn populateMissingMetadata(self: *Elf) !void {
 
     if (self.phdr_load_zerofill_index == null) {
         self.phdr_load_zerofill_index = @as(u16, @intCast(self.phdrs.items.len));
-        const p_align = if (self.base.options.target.os.tag == .linux) self.page_size else @as(u16, ptr_size);
+        const p_align = if (self.base.options.target.os.tag == .linux or self.base.options.target.os.tag == .android) self.page_size else @as(u16, ptr_size);
         const off = self.phdrs.items[self.phdr_load_rw_index.?].p_offset;
         log.debug("found PT_LOAD zerofill free space 0x{x} to 0x{x}", .{ off, off });
         // TODO Same as for GOT
@@ -2709,7 +2709,7 @@ fn updateDeclCode(
 
     if (self.base.child_pid) |pid| {
         switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 var code_vec: [1]std.os.iovec_const = .{.{
                     .iov_base = code.ptr,
                     .iov_len = code.len,
@@ -3605,6 +3605,21 @@ const CsuObjects = struct {
                     } else {
                         // Bundled glibc only has Scrt1.o .
                         if (result.crt0 != null and link_options.target.isGnuLibC()) result.crt0 = "Scrt1.o";
+                    }
+                },
+                .android => {
+                    switch (mode) {
+                        // zig fmt: off
+                        .dynamic_lib => result.set( null, null, "crtbegin_so.o",      "crtend_so.o",	  null ),
+                        .dynamic_exe,
+                        .dynamic_pie => result.set( null, null, "crtbegin_dynamic.o", "crtend_android.o", null ),
+                        .static_exe,
+                        .static_pie  => result.set( null, null, "crtbegin_static.o",  "crtend_android.o", null ),
+                        // zig fmt: on
+                    }
+                    if (link_options.libc_installation) |_| {
+                        result.crtbegin = null;
+                        result.crtend = null;
                     }
                 },
                 .dragonfly => switch (mode) {

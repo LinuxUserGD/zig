@@ -4993,6 +4993,18 @@ fn detectLibCFromLibCInstallation(arena: Allocator, target: Target, lci: *const 
 
     var sysroot: ?[]const u8 = null;
 
+    if (target.os.tag == .android) {
+        sysroot = "/data/data/com.termux/files";
+        const android_path = switch (target.cpu.arch) {
+           .x86_64 => "/data/data/com.termux/files/usr/include/x86_64-linux-android",
+           .aarch64 => "/data/data/com.termux/files/usr/include/aarch64-linux-android",
+           .x86 => "/data/data/com.termux/files/usr/include/x86-linux-android",
+           .arm => "/data/data/com.termux/files/usr/include/arm-linux-androideabi",
+           else => "",
+        };
+        list.appendAssumeCapacity(android_path);
+    }
+
     if (target.isDarwin()) d: {
         const down1 = std.fs.path.dirname(lci.sys_include_dir.?) orelse break :d;
         const down2 = std.fs.path.dirname(down1) orelse break :d;

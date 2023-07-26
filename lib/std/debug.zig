@@ -132,7 +132,7 @@ pub fn dumpCurrentStackTrace(start_addr: ?usize) void {
 }
 
 pub const have_ucontext = @hasDecl(os.system, "ucontext_t") and
-    (builtin.os.tag != .linux or switch (builtin.cpu.arch) {
+    ((builtin.os.tag != .linux and builtin.os.tag != .android) or switch (builtin.cpu.arch) {
     .mips, .mipsel, .mips64, .mips64el, .riscv64 => false,
     else => true,
 });
@@ -169,11 +169,11 @@ pub fn relocateContext(context: *ThreadContext) void {
 
 pub const have_getcontext = @hasDecl(os.system, "getcontext") and
     builtin.os.tag != .openbsd and
-    (builtin.os.tag != .linux or switch (builtin.cpu.arch) {
+    ((builtin.os.tag != .linux and builtin.os.tag != .android) or switch (builtin.cpu.arch) {
     .x86,
     .x86_64,
     => true,
-    else => builtin.link_libc and !builtin.target.isMusl(),
+    else => builtin.link_libc and !builtin.target.isMusl() and builtin.os.tag != .android,
 });
 
 /// Capture the current context. The register values in the context will reflect the
@@ -979,6 +979,7 @@ pub fn openSelfDebugInfo(allocator: mem.Allocator) OpenSelfDebugInfoError!DebugI
         }
         switch (native_os) {
             .linux,
+            .android,
             .freebsd,
             .netbsd,
             .dragonfly,
@@ -2223,7 +2224,7 @@ pub const ModuleDebugInfo = switch (native_os) {
             };
         }
     },
-    .linux, .netbsd, .freebsd, .dragonfly, .openbsd, .haiku, .solaris => struct {
+    .linux, .android, .netbsd, .freebsd, .dragonfly, .openbsd, .haiku, .solaris => struct {
         base_address: usize,
         dwarf: DW.DwarfInfo,
         mapped_memory: []align(mem.page_size) const u8,
@@ -2305,6 +2306,7 @@ fn getDebugInfoAllocator() mem.Allocator {
 /// Whether or not the current target can print useful debug information when a segfault occurs.
 pub const have_segfault_handling_support = switch (native_os) {
     .linux,
+    .android,
     .macos,
     .netbsd,
     .solaris,
@@ -2377,7 +2379,7 @@ fn handleSegfaultPosix(sig: i32, info: *const os.siginfo_t, ctx_ptr: ?*const any
     resetSegfaultHandler();
 
     const addr = switch (native_os) {
-        .linux => @intFromPtr(info.fields.sigfault.addr),
+        .linux, .android => @intFromPtr(info.fields.sigfault.addr),
         .freebsd, .macos => @intFromPtr(info.addr),
         .netbsd => @intFromPtr(info.info.reason.fault.addr),
         .openbsd => @intFromPtr(info.data.fault.addr),

@@ -29,6 +29,7 @@ const is_windows = builtin.os.tag == .windows;
 pub const darwin = std.c;
 pub const dragonfly = std.c;
 pub const freebsd = std.c;
+pub const android = @import("os/linux.zig");
 pub const haiku = std.c;
 pub const netbsd = std.c;
 pub const openbsd = std.c;
@@ -67,6 +68,7 @@ else switch (builtin.os.tag) {
     .plan9 => plan9,
     .wasi => wasi,
     .uefi => uefi,
+    .android => android,
     else => struct {},
 };
 
@@ -421,7 +423,7 @@ pub const RebootError = error{
 } || UnexpectedError;
 
 pub const RebootCommand = switch (builtin.os.tag) {
-    .linux => union(linux.LINUX_REBOOT.CMD) {
+    .linux, .android => union(linux.LINUX_REBOOT.CMD) {
         RESTART: void,
         HALT: void,
         CAD_ON: void,
@@ -436,7 +438,7 @@ pub const RebootCommand = switch (builtin.os.tag) {
 
 pub fn reboot(cmd: RebootCommand) RebootError!void {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .android => {
             switch (system.getErrno(linux.reboot(
                 .MAGIC1,
                 .MAGIC2,
@@ -477,9 +479,9 @@ pub fn getrandom(buffer: []u8) GetRandomError!void {
     if (builtin.os.tag == .windows) {
         return windows.RtlGenRandom(buffer);
     }
-    if (builtin.os.tag == .linux or builtin.os.tag == .freebsd) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android or builtin.os.tag == .freebsd) {
         var buf = buffer;
-        const use_c = builtin.os.tag != .linux or
+        const use_c = (builtin.os.tag != .linux and builtin.os.tag != .android) or
             std.c.versionCheck(std.SemanticVersion{ .major = 2, .minor = 25, .patch = 0 }).ok;
 
         while (buf.len != 0) {
@@ -554,7 +556,7 @@ pub fn abort() noreturn {
         }
         windows.kernel32.ExitProcess(3);
     }
-    if (!builtin.link_libc and builtin.os.tag == .linux) {
+    if (!builtin.link_libc and (builtin.os.tag == .linux or builtin.os.tag == .android)) {
         // The Linux man page says that the libc abort() function
         // "first unblocks the SIGABRT signal", but this is a footgun
         // for user-defined signal handlers that want to restore some state in
@@ -609,7 +611,7 @@ pub fn raise(sig: u8) RaiseError!void {
         }
     }
 
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         var set: sigset_t = undefined;
         // block application signals
         sigprocmask(SIG.BLOCK, &linux.app_mask, &set);
@@ -652,7 +654,7 @@ pub fn exit(status: u8) noreturn {
     if (builtin.os.tag == .wasi) {
         wasi.proc_exit(status);
     }
-    if (builtin.os.tag == .linux and !builtin.single_threaded) {
+    if ((builtin.os.tag == .linux or builtin.os.tag == .android) and !builtin.single_threaded) {
         linux.exit_group(status);
     }
     if (builtin.os.tag == .uefi) {
@@ -731,7 +733,7 @@ pub fn read(fd: fd_t, buf: []u8) ReadError!usize {
 
     // Prevents EINVAL.
     const max_count = switch (builtin.os.tag) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos => math.maxInt(i32),
         else => math.maxInt(isize),
     };
@@ -865,7 +867,7 @@ pub fn pread(fd: fd_t, buf: []u8, offset: u64) PReadError!usize {
 
     // Prevent EINVAL.
     const max_count = switch (builtin.os.tag) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos => math.maxInt(i32),
         else => math.maxInt(isize),
     };
@@ -1115,7 +1117,7 @@ pub fn write(fd: fd_t, bytes: []const u8) WriteError!usize {
     }
 
     const max_count = switch (builtin.os.tag) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos => math.maxInt(i32),
         else => math.maxInt(isize),
     };
@@ -1277,7 +1279,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
 
     // Prevent EINVAL.
     const max_count = switch (builtin.os.tag) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos => math.maxInt(i32),
         else => math.maxInt(isize),
     };
@@ -1813,7 +1815,7 @@ pub fn execveZ(
                 .BADARCH => return error.InvalidExe,
                 else => return unexpectedErrno(err),
             },
-            .linux, .solaris => switch (err) {
+            .linux, .android, .solaris => switch (err) {
                 .LIBBAD => return error.InvalidExe,
                 else => return unexpectedErrno(err),
             },
@@ -3254,7 +3256,7 @@ pub fn isatty(handle: fd_t) bool {
 
         return true;
     }
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         while (true) {
             var wsz: linux.winsize = undefined;
             const fd = @as(usize, @bitCast(@as(isize, handle)));
@@ -4806,7 +4808,7 @@ pub const SeekError = error{
 
 /// Repositions read/write file offset relative to the beginning.
 pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
-    if (builtin.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((builtin.os.tag == .linux or builtin.os.tag == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, offset, &result, SEEK.SET))) {
             .SUCCESS => return,
@@ -4851,7 +4853,7 @@ pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
 
 /// Repositions read/write file offset relative to the current offset.
 pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
-    if (builtin.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((builtin.os.tag == .linux or builtin.os.tag == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @as(u64, @bitCast(offset)), &result, SEEK.CUR))) {
             .SUCCESS => return,
@@ -4895,7 +4897,7 @@ pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
 
 /// Repositions read/write file offset relative to the end.
 pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
-    if (builtin.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((builtin.os.tag == .linux or builtin.os.tag == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @as(u64, @bitCast(offset)), &result, SEEK.END))) {
             .SUCCESS => return,
@@ -4939,7 +4941,7 @@ pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
 
 /// Returns the read/write file offset relative to the beginning.
 pub fn lseek_CUR_get(fd: fd_t) SeekError!u64 {
-    if (builtin.os.tag == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((builtin.os.tag == .linux or builtin.os.tag == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, 0, &result, SEEK.CUR))) {
             .SUCCESS => return result,
@@ -5155,7 +5157,7 @@ pub fn realpathZ(pathname: [*:0]const u8, out_buffer: *[MAX_PATH_BYTES]u8) RealP
         return realpath(mem.sliceTo(pathname, 0), out_buffer);
     }
     if (!builtin.link_libc) {
-        const flags = if (builtin.os.tag == .linux) O.PATH | O.NONBLOCK | O.CLOEXEC else O.NONBLOCK | O.CLOEXEC;
+        const flags = if (builtin.os.tag == .linux or builtin.os.tag == .android) O.PATH | O.NONBLOCK | O.CLOEXEC else O.NONBLOCK | O.CLOEXEC;
         const fd = openZ(pathname, flags, 0) catch |err| switch (err) {
             error.FileLocksNotSupported => unreachable,
             error.WouldBlock => unreachable,
@@ -5216,7 +5218,7 @@ pub fn isGetFdPathSupportedOnTarget(os: std.Target.Os) bool {
         // zig fmt: off
         .windows,
         .macos, .ios, .watchos, .tvos,
-        .linux,
+        .linux, .android,
         .solaris,
         .freebsd,
         => true,
@@ -5259,7 +5261,7 @@ pub fn getFdPath(fd: fd_t, out_buffer: *[MAX_PATH_BYTES]u8) RealPathError![]u8 {
             const len = mem.indexOfScalar(u8, out_buffer[0..], @as(u8, 0)) orelse MAX_PATH_BYTES;
             return out_buffer[0..len];
         },
-        .linux => {
+        .linux, .android => {
             var procfs_buf: ["/proc/self/fd/-2147483648\x00".len]u8 = undefined;
             const proc_path = std.fmt.bufPrintZ(procfs_buf[0..], "/proc/self/fd/{d}", .{fd}) catch unreachable;
 
@@ -5695,7 +5697,7 @@ pub fn gethostname(name_buffer: *[HOST_NAME_MAX]u8) GetHostNameError![]u8 {
             else => |err| return unexpectedErrno(err),
         }
     }
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         const uts = uname();
         const hostname = mem.sliceTo(&uts.nodename, 0);
         const result = name_buffer[0..hostname.len];
@@ -6101,13 +6103,13 @@ pub fn sendfile(
     // Prevents EOVERFLOW.
     const size_t = std.meta.Int(.unsigned, @typeInfo(usize).Int.bits - 1);
     const max_count = switch (builtin.os.tag) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos => math.maxInt(i32),
         else => math.maxInt(size_t),
     };
 
     switch (builtin.os.tag) {
-        .linux => sf: {
+        .linux, .android => sf: {
             // sendfile() first appeared in Linux 2.2, glibc 2.1.
             const call_sf = comptime if (builtin.link_libc)
                 std.c.versionCheck(.{ .major = 2, .minor = 1, .patch = 0 }).ok
@@ -6724,7 +6726,7 @@ pub const MemFdCreateError = error{
 
 pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .android => {
             // memfd_create is available only in glibc versions starting with 2.27.
             const use_c = std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 }).ok;
             const sys = if (use_c) std.c else linux;
@@ -7253,7 +7255,7 @@ pub fn ptrace(request: u32, pid: pid_t, addr: usize, signal: usize) PtraceError!
         @compileError("Unsupported OS");
 
     return switch (builtin.os.tag) {
-        .linux => switch (errno(linux.ptrace(request, pid, addr, signal, 0))) {
+        .linux, .android => switch (errno(linux.ptrace(request, pid, addr, signal, 0))) {
             .SUCCESS => {},
             .SRCH => error.ProcessNotFound,
             .FAULT => unreachable,

@@ -18,6 +18,15 @@ pub fn detect(arena: Allocator, native_info: NativeTargetInfo) !NativePaths {
     const native_target = native_info.target;
     var self: NativePaths = .{ .arena = arena };
     var is_nix = false;
+    if (builtin.os.tag == .android) {
+        const lib_path = switch (builtin.cpu.arch) {
+            .x86_64, .aarch64 => "/system/lib64",
+            .x86, .arm => "/system/lib",
+            else => "",
+        };
+        try self.addLibDir(lib_path);
+        try self.addFrameworkDir(lib_path);
+    }
     if (process.getEnvVarOwned(arena, "NIX_CFLAGS_COMPILE")) |nix_cflags_compile| {
         is_nix = true;
         var it = mem.tokenizeScalar(u8, nix_cflags_compile, ' ');

@@ -156,7 +156,7 @@ fn updateOsVersionRange(self: *CrossTarget, os: Target.Os) void {
             self.os_version_max = .{ .semver = os.version_range.semver.max };
         },
 
-        .linux => {
+        .linux, .android => {
             self.os_version_min = .{ .semver = os.version_range.linux.range.min };
             self.os_version_max = .{ .semver = os.version_range.linux.range.max };
         },
@@ -434,7 +434,7 @@ pub fn getOs(self: CrossTarget) Target.Os {
     if (self.os_version_min) |min| switch (min) {
         .none => {},
         .semver => |semver| switch (self.getOsTag()) {
-            .linux => adjusted_os.version_range.linux.range.min = semver,
+            .linux, .android => adjusted_os.version_range.linux.range.min = semver,
             else => adjusted_os.version_range.semver.min = semver,
         },
         .windows => |win_ver| adjusted_os.version_range.windows.min = win_ver,
@@ -443,7 +443,7 @@ pub fn getOs(self: CrossTarget) Target.Os {
     if (self.os_version_max) |max| switch (max) {
         .none => {},
         .semver => |semver| switch (self.getOsTag()) {
-            .linux => adjusted_os.version_range.linux.range.max = semver,
+            .linux, .android => adjusted_os.version_range.linux.range.max = semver,
             else => adjusted_os.version_range.semver.max = semver,
         },
         .windows => |win_ver| adjusted_os.version_range.windows.max = win_ver,
@@ -516,7 +516,7 @@ pub fn isDragonFlyBSD(self: CrossTarget) bool {
 }
 
 pub fn isLinux(self: CrossTarget) bool {
-    return self.getOsTag() == .linux;
+    return self.getOsTag() == .linux or self.getOsTag() == .android;
 }
 
 pub fn isWindows(self: CrossTarget) bool {
@@ -652,7 +652,7 @@ pub fn vcpkgTriplet(self: CrossTarget, allocator: mem.Allocator, linkage: VcpkgL
 
     const os = switch (self.getOsTag()) {
         .windows => "windows",
-        .linux => "linux",
+        .linux, .android => "linux",
         .macos => "macos",
         else => return error.UnsupportedVcpkgOperatingSystem,
     };
@@ -745,6 +745,7 @@ fn parseOs(result: *CrossTarget, diags: *ParseOptions.Diagnostics, text: []const
         .netbsd,
         .openbsd,
         .linux,
+        .android,
         .dragonfly,
         => {
             var range_it = mem.splitSequence(u8, version_text, "...");
@@ -823,7 +824,7 @@ test "CrossTarget.parse" {
         });
         const target = cross_target.toTarget();
 
-        try std.testing.expect(target.os.tag == .linux);
+        try std.testing.expect(target.os.tag == .linux or target.os.tag == .android);
         try std.testing.expect(target.abi == .gnu);
         try std.testing.expect(target.cpu.arch == .x86_64);
         try std.testing.expect(!Target.x86.featureSetHas(target.cpu.features, .sse));
@@ -848,7 +849,7 @@ test "CrossTarget.parse" {
         });
         const target = cross_target.toTarget();
 
-        try std.testing.expect(target.os.tag == .linux);
+        try std.testing.expect(target.os.tag == .linux or target.os.tag == .android);
         try std.testing.expect(target.abi == .musleabihf);
         try std.testing.expect(target.cpu.arch == .arm);
         try std.testing.expect(target.cpu.model == &Target.arm.cpu.generic);
@@ -866,7 +867,7 @@ test "CrossTarget.parse" {
         const target = cross_target.toTarget();
 
         try std.testing.expect(target.cpu.arch == .aarch64);
-        try std.testing.expect(target.os.tag == .linux);
+        try std.testing.expect(target.os.tag == .linux or target.os.tag == .android);
         try std.testing.expect(target.os.version_range.linux.range.min.major == 3);
         try std.testing.expect(target.os.version_range.linux.range.min.minor == 10);
         try std.testing.expect(target.os.version_range.linux.range.min.patch == 0);

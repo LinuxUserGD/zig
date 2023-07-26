@@ -27,6 +27,7 @@ pub const Target = struct {
             macos,
             netbsd,
             openbsd,
+            android,
             solaris,
             windows,
             zos,
@@ -331,7 +332,7 @@ pub const Target = struct {
                         },
                     },
 
-                    .linux => return .{
+                    .linux, .android => return .{
                         .linux = .{
                             .range = .{
                                 .min = .{ .major = 3, .minor = 16, .patch = 0 },
@@ -362,7 +363,7 @@ pub const Target = struct {
         /// redundant with the OS tag; this function abstracts that part away.
         pub inline fn getVersionRange(self: Os) TaggedVersionRange {
             switch (self.tag) {
-                .linux => return TaggedVersionRange{ .linux = self.version_range.linux },
+                .linux, .android => return TaggedVersionRange{ .linux = self.version_range.linux },
                 .windows => return TaggedVersionRange{ .windows = self.version_range.windows },
 
                 .freebsd,
@@ -386,7 +387,7 @@ pub const Target = struct {
             if (self.tag != tag) return false;
 
             return switch (tag) {
-                .linux => self.version_range.linux.isAtLeast(version),
+                .linux, .android => self.version_range.linux.isAtLeast(version),
                 .windows => self.version_range.windows.isAtLeast(version),
                 else => self.version_range.semver.isAtLeast(version),
             };
@@ -404,6 +405,7 @@ pub const Target = struct {
                 .tvos,
                 .watchos,
                 .dragonfly,
+                .android,
                 .openbsd,
                 .haiku,
                 .solaris,
@@ -487,6 +489,7 @@ pub const Target = struct {
         eabi,
         eabihf,
         android,
+        androideabi,
         musl,
         musleabi,
         musleabihf,
@@ -518,6 +521,7 @@ pub const Target = struct {
                 return .musl;
             }
             switch (target_os.tag) {
+                .android => return .android,
                 .freestanding,
                 .ananas,
                 .cloudabi,
@@ -579,6 +583,13 @@ pub const Target = struct {
         pub inline fn isMusl(abi: Abi) bool {
             return switch (abi) {
                 .musl, .musleabi, .musleabihf => true,
+                else => false,
+            };
+        }
+
+        pub inline fn isBionic(abi: Abi) bool {
+            return switch (abi) {
+                .android, .androideabi => true,
                 else => false,
             };
         }
@@ -1431,7 +1442,7 @@ pub const Target = struct {
     }
 
     pub inline fn isAndroid(self: Target) bool {
-        return self.abi == .android;
+        return self.abi.isBionic();
     }
 
     pub inline fn isWasm(self: Target) bool {
@@ -1548,7 +1559,7 @@ pub const Target = struct {
         const print = S.print;
         const copy = S.copy;
 
-        if (self.abi == .android) {
+        if (self.abi == .android or self.abi == .androideabi) {
             const suffix = if (self.ptrBitWidth() == 64) "64" else "";
             return print(&result, "/system/bin/linker{s}", .{suffix});
         }
@@ -1571,6 +1582,11 @@ pub const Target = struct {
             .freebsd => return copy(&result, "/libexec/ld-elf.so.1"),
             .netbsd => return copy(&result, "/libexec/ld.elf_so"),
             .openbsd => return copy(&result, "/usr/libexec/ld.so"),
+            .android => return copy(&result, switch (self.cpu.arch) {
+                .x86_64, .aarch64 => "/system/lib64/ld-android.so",
+                .x86, .arm => "/system/lib/ld-android.so",
+                else => "",
+            }),
             .dragonfly => return copy(&result, "/libexec/ld-elf.so.2"),
             .solaris => return copy(&result, "/lib/64/ld.so.1"),
             .linux => switch (self.cpu.arch) {
@@ -1945,7 +1961,7 @@ pub const Target = struct {
             .powerpc64le,
             => switch (target.os.tag) {
                 else => 8,
-                .linux => 16,
+                .linux, .android => 16,
             },
             else => @divExact(target.ptrBitWidth(), 8),
         };
@@ -2107,6 +2123,7 @@ pub const Target = struct {
             .netbsd,
             .dragonfly,
             .openbsd,
+            .android,
             .wasi,
             .emscripten,
             .plan9,
@@ -2174,7 +2191,7 @@ pub const Target = struct {
                             .muslx32,
                             => return 64,
                             else => switch (target.os.tag) {
-                                .freebsd, .netbsd, .openbsd => return 64,
+                                .freebsd, .netbsd, .openbsd, .android => return 64,
                                 else => return 128,
                             },
                         },
@@ -2188,7 +2205,7 @@ pub const Target = struct {
                             .muslx32,
                             => return 64,
                             else => switch (target.os.tag) {
-                                .freebsd, .openbsd => return 64,
+                                .freebsd, .openbsd, .android => return 64,
                                 else => return 128,
                             },
                         },
@@ -2362,6 +2379,7 @@ pub const Target = struct {
                         .eabi,
                         .eabihf,
                         .android,
+                        .androideabi,
                         .musleabi,
                         .musleabihf,
                         => 8,
@@ -2450,6 +2468,7 @@ pub const Target = struct {
                     .eabi,
                     .eabihf,
                     .android,
+                    .androideabi,
                     .musleabi,
                     .musleabihf,
                     => {},

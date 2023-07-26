@@ -26,7 +26,7 @@ const Impl = if (target.os.tag == .windows)
     WindowsThreadImpl
 else if (use_pthreads)
     PosixThreadImpl
-else if (target.os.tag == .linux)
+else if (target.os.tag == .linux or target.os.tag == .android)
     LinuxThreadImpl
 else if (target.os.tag == .wasi)
     WasiThreadImpl
@@ -36,7 +36,7 @@ else
 impl: Impl,
 
 pub const max_name_len = switch (target.os.tag) {
-    .linux => 15,
+    .linux, .android => 15,
     .windows => 31,
     .macos, .ios, .watchos, .tvos => 63,
     .netbsd => 31,
@@ -64,7 +64,7 @@ pub fn setName(self: Thread, name: []const u8) SetNameError!void {
     };
 
     switch (target.os.tag) {
-        .linux => if (use_pthreads) {
+        .linux, .android => if (use_pthreads) {
             if (self.getHandle() == std.c.pthread_self()) {
                 // Set the name of the calling thread (no thread id required).
                 const err = try os.prctl(.SET_NAME, .{@intFromPtr(name_with_terminator.ptr)});
@@ -174,7 +174,7 @@ pub fn getName(self: Thread, buffer_ptr: *[max_name_len:0]u8) GetNameError!?[]co
     var buffer: [:0]u8 = buffer_ptr;
 
     switch (target.os.tag) {
-        .linux => if (use_pthreads) {
+        .linux, .android => if (use_pthreads) {
             if (self.getHandle() == std.c.pthread_self()) {
                 // Get the name of the calling thread (no thread id required).
                 const err = try os.prctl(.GET_NAME, .{@intFromPtr(buffer.ptr)});
@@ -263,6 +263,7 @@ pub fn getName(self: Thread, buffer_ptr: *[max_name_len:0]u8) GetNameError!?[]co
 /// Represents an ID per thread guaranteed to be unique only within a process.
 pub const Id = switch (target.os.tag) {
     .linux,
+    .android,
     .dragonfly,
     .netbsd,
     .freebsd,
@@ -591,7 +592,7 @@ const PosixThreadImpl = struct {
 
     fn getCurrentId() Id {
         switch (target.os.tag) {
-            .linux => {
+            .linux, .android => {
                 return LinuxThreadImpl.getCurrentId();
             },
             .macos, .ios, .watchos, .tvos => {
@@ -623,7 +624,7 @@ const PosixThreadImpl = struct {
 
     fn getCpuCount() !usize {
         switch (target.os.tag) {
-            .linux => {
+            .linux, .android => {
                 return LinuxThreadImpl.getCpuCount();
             },
             .openbsd => {

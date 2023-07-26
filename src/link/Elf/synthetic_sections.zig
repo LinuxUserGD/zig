@@ -146,7 +146,7 @@ pub const GotSection = struct {
 
                 if (elf_file.base.child_pid) |pid| {
                     switch (builtin.os.tag) {
-                        .linux => {
+                        .linux, .android => {
                             var local_vec: [1]std.os.iovec_const = .{.{
                                 .iov_base = &buf,
                                 .iov_len = buf.len,
