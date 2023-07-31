@@ -8799,6 +8799,7 @@ pub extern "c" fn telldir(dp: *DIR) c_long;
 pub extern "c" fn seekdir(dp: *DIR, loc: c_long) void;
 
 pub extern "c" fn sigwait(set: ?*sigset_t, sig: ?*c_int) c_int;
+pub extern "c" fn sysconf(sc: c_int) c_long;
 
 pub extern "c" fn alarm(seconds: c_uint) c_uint;
 

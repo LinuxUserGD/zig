@@ -92,14 +92,14 @@ fn queryPageSize() usize {
         runtimePageSize.store(size, .unordered);
     }
     switch (builtin.os.tag) {
-        .linux => size = if (builtin.link_libc) @intCast(sysconf(std.os.linux.SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
+        .linux => size = if (builtin.link_libc) @intCast(sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .macos => blk: { size = @import("../../src/link/MachO.zig").machTaskForSelf().getPageSize() catch break :blk; },
         .windows => {
             var info: std.os.windows.SYSTEM_INFO = undefined;
             std.os.windows.kernel32.GetSystemInfo(&info);
             size = info.dwPageSize;
         },
-        else => if (@hasDecl(std.c.SC, "PAGE_SIZE")) { size = sysconf(std.c.SC.PAGE_SIZE); } else {},
+        else => if (@hasDecl(std.c._SC, "PAGE_SIZE")) { size = sysconf(std.c._SC.PAGE_SIZE); } else {},
     }
     return size;
 }

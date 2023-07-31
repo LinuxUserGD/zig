@@ -25,6 +25,10 @@ comptime {
     assert(builtin.os.tag == .freebsd); // Prevent access of std.c symbols on wrong OS.
 }
 
+pub const _SC = struct {
+    pub const PAGESIZE = 47;
+};
+
 pub extern "c" fn kinfo_getfile(pid: pid_t, cntp: *c_int) ?[*]kinfo_file;
 pub extern "c" fn copy_file_range(fd_in: fd_t, off_in: ?*off_t, fd_out: fd_t, off_out: ?*off_t, len: usize, flags: u32) usize;
 

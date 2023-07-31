@@ -7,6 +7,10 @@ const uid_t = std.c.uid_t;
 
 pub const lwpid_t = i32;
 
+pub const _SC = struct {
+    pub const PAGESIZE = 28;
+};
+
 pub extern "c" fn _lwp_self() lwpid_t;
 pub extern "c" fn pthread_setname_np(thread: pthread_t, name: [*:0]const u8, arg: ?*anyopaque) c_int;
 

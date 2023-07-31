@@ -13,6 +13,10 @@ comptime {
     assert(builtin.os.tag == .openbsd); // Prevent access of std.c symbols on wrong OS.
 }
 
+pub const _SC = struct {
+    pub const PAGESIZE = 28;
+};
+
 pub const pthread_spinlock_t = extern struct {
     inner: ?*anyopaque = null,
 };
