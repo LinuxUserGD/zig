@@ -6422,7 +6422,7 @@ pub fn copy_file_range(fd_in: fd_t, off_in: u64, fd_out: fd_t, off_out: u64, len
 
         while (true) {
             const rc = system.copy_file_range(fd_in, &off_in_copy, fd_out, &off_out_copy, len, flags);
-            if (builtin.os.tag == .freebsd) {
+            if (builtin.os.tag == .freebsd or builtin.os.tag == .android) {
                 switch (system.getErrno(rc)) {
                     .SUCCESS => return @as(usize, @intCast(rc)),
                     .BADF => return error.FilesOpenedWithWrongFlags,
