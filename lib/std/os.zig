@@ -6413,6 +6413,8 @@ pub fn copy_file_range(fd_in: fd_t, off_in: u64, fd_out: fd_t, off_out: u64, len
     if ((comptime builtin.os.isAtLeast(.freebsd, .{ .major = 13, .minor = 0, .patch = 0 }) orelse false) or
         ((comptime builtin.os.isAtLeast(.linux, .{ .major = 4, .minor = 5, .patch = 0 }) orelse false and
         std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 }).ok) and
+        has_copy_file_range_syscall.load(.Monotonic)) or
+        ((comptime builtin.os.isAtLeast(.android, .{ .major = 4, .minor = 5, .patch = 0 }) orelse false) and
         has_copy_file_range_syscall.load(.Monotonic)))
     {
         var off_in_copy = @as(i64, @bitCast(off_in));
