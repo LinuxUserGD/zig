@@ -3130,7 +3130,7 @@ fn copy_file(fd_in: os.fd_t, fd_out: os.fd_t, maybe_size: ?u64) CopyFileRawError
         }
     }
 
-    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
+    if (builtin.os.tag == .linux) { // not supported by bionic libc
         // Try copy_file_range first as that works at the FS level and is the
         // most efficient method (if available).
         var offset: u64 = 0;
