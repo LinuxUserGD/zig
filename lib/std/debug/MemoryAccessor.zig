@@ -14,20 +14,20 @@ const MemoryAccessor = @This();
 var cached_pid: posix.pid_t = -1;
 
 mem: switch (native_os) {
-    .linux => File,
+    .linux, .android => File,
     else => void,
 },
 
 pub const init: MemoryAccessor = .{
     .mem = switch (native_os) {
-        .linux => .{ .handle = -1 },
+        .linux, .android => .{ .handle = -1 },
         else => {},
     },
 };
 
 fn read(ma: *MemoryAccessor, address: usize, buf: []u8) bool {
     switch (native_os) {
-        .linux => while (true) switch (ma.mem.handle) {
+        .linux, .android => while (true) switch (ma.mem.handle) {
             -2 => break,
             -1 => {
                 const linux = std.os.linux;

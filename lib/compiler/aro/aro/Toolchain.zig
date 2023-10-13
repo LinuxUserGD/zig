@@ -40,7 +40,7 @@ const Inner = union(enum) {
 
     fn deinit(self: *Inner, allocator: mem.Allocator) void {
         switch (self.*) {
-            .linux => |*linux| linux.deinit(allocator),
+            .linux, .android => |*linux| linux.deinit(allocator),
             .uninitialized, .unknown => {},
         }
     }
@@ -72,7 +72,7 @@ pub fn getTarget(tc: *const Toolchain) std.Target {
 fn getDefaultLinker(tc: *const Toolchain) []const u8 {
     return switch (tc.inner) {
         .uninitialized => unreachable,
-        .linux => |linux| linux.getDefaultLinker(tc.getTarget()),
+        .linux, .android => |linux| linux.getDefaultLinker(tc.getTarget()),
         .unknown => "ld",
     };
 }
@@ -84,7 +84,7 @@ pub fn discover(tc: *Toolchain) !void {
     const target = tc.getTarget();
     tc.inner = switch (target.os.tag) {
         .elfiamcu,
-        .linux,
+        .linux, .android,
         => if (target.cpu.arch == .hexagon)
             .{ .unknown = {} } // TODO
         else if (target.cpu.arch.isMIPS())
@@ -99,7 +99,7 @@ pub fn discover(tc: *Toolchain) !void {
     };
     return switch (tc.inner) {
         .uninitialized => unreachable,
-        .linux => |*linux| linux.discover(tc),
+        .linux, .android => |*linux| linux.discover(tc),
         .unknown => {},
     };
 }
@@ -337,7 +337,7 @@ pub fn addPathFromComponents(tc: *Toolchain, components: []const []const u8, des
 pub fn buildLinkerArgs(tc: *Toolchain, argv: *std.ArrayList([]const u8)) !void {
     return switch (tc.inner) {
         .uninitialized => unreachable,
-        .linux => |*linux| linux.buildLinkerArgs(tc, argv),
+        .linux, .android => |*linux| linux.buildLinkerArgs(tc, argv),
         .unknown => @panic("This toolchain does not support linking yet"),
     };
 }
@@ -491,7 +491,7 @@ pub fn addRuntimeLibs(tc: *const Toolchain, argv: *std.ArrayList([]const u8)) !v
 pub fn defineSystemIncludes(tc: *Toolchain) !void {
     return switch (tc.inner) {
         .uninitialized => unreachable,
-        .linux => |*linux| linux.defineSystemIncludes(tc),
+        .linux, .android => |*linux| linux.defineSystemIncludes(tc),
         .unknown => {
             if (tc.driver.nostdinc) return;
 

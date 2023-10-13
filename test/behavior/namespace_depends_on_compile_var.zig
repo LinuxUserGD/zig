@@ -13,6 +13,6 @@ test "namespace depends on compile var" {
     }
 }
 const some_namespace = switch (builtin.os.tag) {
-    .linux => @import("namespace_depends_on_compile_var/a.zig"),
+    .linux, .android => @import("namespace_depends_on_compile_var/a.zig"),
     else => @import("namespace_depends_on_compile_var/b.zig"),
 };

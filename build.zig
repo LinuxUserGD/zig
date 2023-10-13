@@ -26,7 +26,6 @@ pub fn build(b: *std.Build) !void {
     const flat = b.option(bool, "flat", "Put files into the installation prefix in a manner suited for upstream distribution rather than a posix file system hierarchy standard") orelse false;
     const single_threaded = b.option(bool, "single-threaded", "Build artifacts that run in single threaded mode");
     const use_zig_libcxx = b.option(bool, "use-zig-libcxx", "If libc++ is needed, use zig's bundled version, don't try to integrate with the system") orelse false;
-
     const test_step = b.step("test", "Run all the tests");
     const skip_install_lib_files = b.option(bool, "no-lib", "skip copying of lib/ files and langref to installation prefix. Useful for development") orelse false;
     const skip_install_langref = b.option(bool, "no-langref", "skip copying of langref to the installation prefix") orelse skip_install_lib_files;
@@ -176,8 +175,8 @@ pub fn build(b: *std.Build) !void {
     const sanitize_thread = b.option(bool, "sanitize-thread", "Enable thread-sanitization") orelse false;
     const strip = b.option(bool, "strip", "Omit debug information");
     const valgrind = b.option(bool, "valgrind", "Enable valgrind integration");
-    const pie = b.option(bool, "pie", "Produce a Position Independent Executable");
     const value_tracing = b.option(bool, "value-tracing", "Enable extra state tracking to help troubleshoot bugs in the compiler (using the std.debug.Trace API)") orelse false;
+    const use_zig_pie = b.option(bool, "pie", "Produce a Position Independent Executable") orelse false;
 
     const mem_leak_frames: u32 = b.option(u32, "mem-leak-frames", "How many stack frames to print when a memory leak occurs. Tests get 2x this amount.") orelse blk: {
         if (strip == true) break :blk @as(u32, 0);
@@ -193,7 +192,9 @@ pub fn build(b: *std.Build) !void {
         .sanitize_thread = sanitize_thread,
         .single_threaded = single_threaded,
     });
-    exe.pie = pie;
+    if (exe.pie == false) {
+        exe.pie = (use_zig_pie or exe.rootModuleTarget().os.tag == .android);
+    }
     exe.entitlements = entitlements;
 
     exe.build_id = b.option(
@@ -328,8 +329,7 @@ pub fn build(b: *std.Build) !void {
                     b.addSearchPrefix(path);
                 }
             }
-
-            try addCmakeCfgOptionsToExe(b, cfg, exe, use_zig_libcxx);
+            try addCmakeCfgOptionsToExe(b, cfg, exe, use_zig_libcxx, std.mem.eql(u8, "ON", cfg.pie));
         } else {
             // Here we are -Denable-llvm but no cmake integration.
             try addStaticLlvmOptionsToExe(exe);
@@ -690,6 +690,7 @@ fn addCmakeCfgOptionsToExe(
     cfg: CMakeConfig,
     exe: *std.Build.Step.Compile,
     use_zig_libcxx: bool,
+    use_zig_pie: bool,
 ) !void {
     if (exe.rootModuleTarget().isDarwin()) {
         // useful for package maintainers
@@ -712,6 +713,10 @@ fn addCmakeCfgOptionsToExe(
     addCMakeLibraryList(exe, cfg.lld_libraries);
     addCMakeLibraryList(exe, cfg.llvm_libraries);
 
+    if (use_zig_pie) {
+        exe.pie = true;
+    }
+
     if (use_zig_libcxx) {
         exe.linkLibCpp();
     } else {
@@ -721,7 +726,7 @@ fn addCmakeCfgOptionsToExe(
         const static = cfg.llvm_linkage == .static;
         const lib_suffix = if (static) exe.rootModuleTarget().staticLibSuffix()[1..] else exe.rootModuleTarget().dynamicLibSuffix()[1..];
         switch (exe.rootModuleTarget().os.tag) {
-            .linux => {
+            .linux, .android => {
                 // First we try to link against the detected libcxx name. If that doesn't work, we fall
                 // back to -lc++ and cross our fingers.
                 addCxxKnownPath(b, cfg, exe, b.fmt("lib{s}.{s}", .{ cfg.system_libcxx, lib_suffix }), "", need_cpp_includes) catch |err| switch (err) {
@@ -885,6 +890,7 @@ const CMakeConfig = struct {
     llvm_libraries: []const u8,
     dia_guids_lib: []const u8,
     system_libcxx: []const u8,
+    pie: []const u8,
 };
 
 const max_config_h_bytes = 1 * 1024 * 1024;
@@ -952,6 +958,7 @@ fn parseConfigH(b: *std.Build, config_h_text: []const u8) ?CMakeConfig {
         .llvm_libraries = undefined,
         .dia_guids_lib = undefined,
         .system_libcxx = undefined,
+        .pie = undefined,
     };
 
     const mappings = [_]struct { prefix: []const u8, field: []const u8 }{
@@ -1010,6 +1017,10 @@ fn parseConfigH(b: *std.Build, config_h_text: []const u8) ?CMakeConfig {
         .{
             .prefix = "#define ZIG_SYSTEM_LIBCXX",
             .field = "system_libcxx",
+        },
+        .{
+            .prefix = "#define ZIG_PIE",
+            .field = "pie",
         },
         // .prefix = ZIG_LLVM_LINK_MODE parsed manually below
     };

@@ -26,7 +26,7 @@ const Hash = std.hash.Wyhash;
 const Cache = std.Build.Cache;
 
 const Os = switch (builtin.os.tag) {
-    .linux => struct {
+    .linux, .android => struct {
         const posix = std.posix;
 
         /// Keyed differently but indexes correspond 1:1 with `dir_table`.
@@ -515,7 +515,7 @@ const Os = switch (builtin.os.tag) {
 
 pub fn init() !Watch {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .android => {
             const fan_fd = try std.posix.fanotify_init(.{
                 .CLASS = .NOTIF,
                 .CLOEXEC = true,
@@ -528,7 +528,7 @@ pub fn init() !Watch {
             return .{
                 .dir_table = .{},
                 .os = switch (builtin.os.tag) {
-                    .linux => .{
+                    .linux, .android => .{
                         .handle_table = .{},
                         .poll_fds = .{
                             .{
@@ -607,7 +607,7 @@ fn markStepSetDirty(gpa: Allocator, step_set: *StepSet, any_dirty: bool) bool {
 
 pub fn update(w: *Watch, gpa: Allocator, steps: []const *Step) !void {
     switch (builtin.os.tag) {
-        .linux, .windows => return Os.update(w, gpa, steps),
+        .linux, .android, .windows => return Os.update(w, gpa, steps),
         else => @compileError("unimplemented"),
     }
 }
@@ -636,7 +636,7 @@ pub const WaitResult = enum {
 
 pub fn wait(w: *Watch, gpa: Allocator, timeout: Timeout) !WaitResult {
     switch (builtin.os.tag) {
-        .linux => {
+        .linux, .android => {
             const events_len = try std.posix.poll(&w.os.poll_fds, timeout.to_i32_ms());
             return if (events_len == 0)
                 .timeout

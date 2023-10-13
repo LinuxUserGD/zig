@@ -123,7 +123,7 @@ fn wWinMainCRTStartup2() callconv(.C) noreturn {
 
 fn exit2(code: usize) noreturn {
     switch (native_os) {
-        .linux => switch (builtin.cpu.arch) {
+        .linux, .android => switch (builtin.cpu.arch) {
             .x86_64 => {
                 asm volatile ("syscall"
                     :
@@ -458,7 +458,7 @@ fn posixCallMainAndExit(argc_argv_ptr: [*]usize) callconv(.C) noreturn {
     while (envp_optional[envp_count]) |_| : (envp_count += 1) {}
     const envp = @as([*][*:0]u8, @ptrCast(envp_optional))[0..envp_count];
 
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         // Find the beginning of the auxiliary vector
         const auxv: [*]elf.Auxv = @ptrCast(@alignCast(envp.ptr + envp_count + 1));
 
@@ -579,7 +579,7 @@ fn main(c_argc: c_int, c_argv: [*][*:0]c_char, c_envp: [*:null]?[*:0]c_char) cal
     while (c_envp[env_count] != null) : (env_count += 1) {}
     const envp = @as([*][*:0]u8, @ptrCast(c_envp))[0..env_count];
 
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         const at_phdr = std.c.getauxval(elf.AT_PHDR);
         const at_phnum = std.c.getauxval(elf.AT_PHNUM);
         const phdrs = (@as([*]elf.Phdr, @ptrFromInt(at_phdr)))[0..at_phnum];

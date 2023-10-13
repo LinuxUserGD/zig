@@ -241,7 +241,6 @@ pub inline fn getContext(context: *ThreadContext) bool {
         windows.ntdll.RtlCaptureContext(context);
         return true;
     }
-
     const result = have_getcontext and posix.system.getcontext(context) == 0;
     if (native_os == .macos) {
         assert(context.mcsize == @sizeOf(std.c.mcontext_t));
@@ -1141,6 +1140,7 @@ fn getDebugInfoAllocator() mem.Allocator {
 /// Whether or not the current target can print useful debug information when a segfault occurs.
 pub const have_segfault_handling_support = switch (native_os) {
     .linux,
+    .android,
     .macos,
     .netbsd,
     .solaris,
@@ -1211,7 +1211,7 @@ fn handleSegfaultPosix(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopa
     resetSegfaultHandler();
 
     const addr = switch (native_os) {
-        .linux => @intFromPtr(info.fields.sigfault.addr),
+        .linux, .android => @intFromPtr(info.fields.sigfault.addr),
         .freebsd, .macos => @intFromPtr(info.addr),
         .netbsd => @intFromPtr(info.info.reason.fault.addr),
         .openbsd => @intFromPtr(info.data.fault.addr),
@@ -1249,7 +1249,7 @@ fn handleSegfaultPosix(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopa
 fn dumpSegfaultInfoPosix(sig: i32, code: i32, addr: usize, ctx_ptr: ?*anyopaque) void {
     const stderr = io.getStdErr().writer();
     _ = switch (sig) {
-        posix.SIG.SEGV => if (native_arch == .x86_64 and native_os == .linux and code == 128) // SI_KERNEL
+        posix.SIG.SEGV => if (native_arch == .x86_64 and (native_os == .linux or native_os == .android) and code == 128) // SI_KERNEL
             // x86_64 doesn't have a full 64-bit virtual address space.
             // Addresses outside of that address space are non-canonical
             // and the CPU won't provide the faulting address to us.

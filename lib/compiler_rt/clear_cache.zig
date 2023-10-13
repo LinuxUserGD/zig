@@ -71,7 +71,7 @@ fn clear_cache(start: usize, end: usize) callconv(.C) void {
                 std.debug.assert(result == 0);
                 exportIt();
             },
-            .linux => {
+            .linux, .android => {
                 const result = std.os.linux.syscall3(.cacheflush, start, end, 0);
                 std.debug.assert(result == 0);
                 exportIt();

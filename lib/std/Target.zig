@@ -27,6 +27,7 @@ pub const Os = struct {
         aix,
         haiku,
         hurd,
+        android,
         linux,
         plan9,
         rtems,
@@ -200,7 +201,7 @@ pub const Os = struct {
                 .wasi,
                 => .semver,
 
-                .linux => .linux,
+                .linux, .android => .linux,
 
                 .windows => .windows,
             };
@@ -208,7 +209,7 @@ pub const Os = struct {
 
         pub fn archName(tag: Tag, arch: Cpu.Arch) [:0]const u8 {
             return switch (tag) {
-                .linux => switch (arch) {
+                .linux, .android => switch (arch) {
                     .arm, .armeb, .thumb, .thumbeb => "arm",
                     .aarch64, .aarch64_be => "aarch64",
                     .loongarch32, .loongarch64 => "loongarch",
@@ -497,7 +498,7 @@ pub const Os = struct {
                     },
                 },
 
-                .linux => .{
+                .linux, .android => .{
                     .linux = .{
                         .range = .{
                             .min = .{ .major = 4, .minor = 19, .patch = 0 },
@@ -535,6 +536,7 @@ pub const Os = struct {
         none: void,
         semver: std.SemanticVersion.Range,
         linux: LinuxVersionRange,
+        android: LinuxVersionRange,
         windows: WindowsVersion.Range,
     };
 
@@ -545,6 +547,7 @@ pub const Os = struct {
             .none => .{ .none = {} },
             .semver => .{ .semver = os.version_range.semver },
             .linux => .{ .linux = os.version_range.linux },
+            .android => .{ .android = os.version_range.linux },
             .windows => .{ .windows = os.version_range.windows },
         };
     }
@@ -553,13 +556,13 @@ pub const Os = struct {
     /// Returns `null` if a runtime check is required.
     pub inline fn isAtLeast(os: Os, comptime tag: Tag, ver: switch (tag.getVersionRangeTag()) {
         .none => void,
-        .semver, .linux => std.SemanticVersion,
+        .semver, .linux, .android => std.SemanticVersion,
         .windows => WindowsVersion,
     }) ?bool {
         return if (os.tag != tag) false else switch (tag.getVersionRangeTag()) {
             .none => true,
             inline .semver,
-            .linux,
+            .linux, .android,
             .windows,
             => |field| @field(os.version_range, @tagName(field)).isAtLeast(ver),
         };
@@ -588,6 +591,7 @@ pub const Os = struct {
             => true,
 
             .linux,
+            .android,
             .windows,
             .freestanding,
             .fuchsia,
@@ -718,6 +722,7 @@ pub const Abi = enum {
             => .gnu,
             .uefi => .msvc,
             .linux,
+            .android,
             .wasi,
             .emscripten,
             => .musl,
@@ -1735,7 +1740,7 @@ pub const DynamicLinker = struct {
             .openbsd => init("/usr/libexec/ld.so"),
             .dragonfly => init("/libexec/ld-elf.so.2"),
             .solaris, .illumos => init("/lib/64/ld.so.1"),
-            .linux => switch (cpu.arch) {
+            .linux, .android => switch (cpu.arch) {
                 .x86,
                 .sparc,
                 => init("/lib/ld-linux.so.2"),
@@ -2135,6 +2140,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
 
         .linux,
         .freebsd,
+        .android,
         .netbsd,
         .dragonfly,
         .openbsd,

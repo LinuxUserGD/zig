@@ -907,7 +907,7 @@ fn updateNavCode(
 
     if (elf_file.base.child_pid) |pid| {
         switch (builtin.os.tag) {
-            .linux => {
+            .linux, .android => {
                 var code_vec: [1]std.posix.iovec_const = .{.{
                     .base = code.ptr,
                     .len = code.len,

@@ -45,6 +45,7 @@ pub fn open(allocator: Allocator) OpenError!SelfInfo {
             return error.MissingDebugInfo;
         switch (native_os) {
             .linux,
+            .android,
             .freebsd,
             .netbsd,
             .dragonfly,
@@ -792,7 +793,7 @@ pub const Module = switch (native_os) {
             };
         }
     },
-    .linux, .netbsd, .freebsd, .dragonfly, .openbsd, .haiku, .solaris, .illumos => Dwarf.ElfModule,
+    .linux, .android, .netbsd, .freebsd, .dragonfly, .openbsd, .haiku, .solaris, .illumos => Dwarf.ElfModule,
     .wasi, .emscripten => struct {
         pub fn deinit(self: *@This(), allocator: Allocator) void {
             _ = self;
@@ -1778,19 +1779,19 @@ comptime {
 pub fn supportsUnwinding(target: std.Target) bool {
     return switch (target.cpu.arch) {
         .x86 => switch (target.os.tag) {
-            .linux, .netbsd, .solaris, .illumos => true,
+            .linux, .android, .netbsd, .solaris, .illumos => true,
             else => false,
         },
         .x86_64 => switch (target.os.tag) {
-            .linux, .netbsd, .freebsd, .openbsd, .macos, .ios, .solaris, .illumos => true,
+            .linux, .android, .netbsd, .freebsd, .openbsd, .macos, .ios, .solaris, .illumos => true,
             else => false,
         },
         .arm => switch (target.os.tag) {
-            .linux => true,
+            .linux, .android => true,
             else => false,
         },
         .aarch64 => switch (target.os.tag) {
-            .linux, .netbsd, .freebsd, .macos, .ios => true,
+            .linux, .android, .netbsd, .freebsd, .macos, .ios => true,
             else => false,
         },
         // Unwinding is possible on other targets but this implementation does

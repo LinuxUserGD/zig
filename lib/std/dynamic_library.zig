@@ -11,7 +11,7 @@ const posix = std.posix;
 /// Platform-specific functionality is available through the `inner` field.
 pub const DynLib = struct {
     const InnerType = switch (native_os) {
-        .linux => if (!builtin.link_libc or builtin.abi == .musl and builtin.link_mode == .static)
+        .linux, .android => if (!builtin.link_libc or builtin.abi == .musl and builtin.link_mode == .static)
             ElfDynLib
         else
             DlDynLib,
@@ -350,7 +350,7 @@ fn checkver(def_arg: *elf.Verdef, vsym_arg: i32, vername: []const u8, strings: [
 }
 
 test "ElfDynLib" {
-    if (native_os != .linux) {
+    if (native_os != .linux and native_os != .android) {
         return error.SkipZigTest;
     }
 
@@ -474,7 +474,7 @@ pub const DlDynLib = struct {
 
 test "dynamic_library" {
     const libname = switch (native_os) {
-        .linux, .freebsd, .openbsd, .solaris, .illumos => "invalid_so.so",
+        .linux, .android, .freebsd, .openbsd, .solaris, .illumos => "invalid_so.so",
         .windows => "invalid_dll.dll",
         .macos, .tvos, .watchos, .ios, .visionos => "invalid_dylib.dylib",
         else => return error.SkipZigTest,

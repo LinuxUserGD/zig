@@ -43,7 +43,7 @@ const wasi = std.os.wasi;
 pub const system = if (use_libc)
     std.c
 else switch (native_os) {
-    .linux => linux,
+    .linux, .android => linux,
     .plan9 => std.os.plan9,
     else => struct {
         pub const ucontext_t = void;
@@ -351,9 +351,9 @@ pub inline fn fchmodat(dirfd: fd_t, path: []const u8, mode: mode_t, flags: u32) 
 
     // No special handling for linux is needed if we can use the libc fallback
     // or `flags` is empty. Glibc only added the fallback in 2.32.
-    const skip_fchmodat_fallback = native_os != .linux or
+    const skip_fchmodat_fallback = native_os != .android and (native_os != .linux or
         std.c.versionCheck(.{ .major = 2, .minor = 32, .patch = 0 }) or
-        flags == 0;
+        flags == 0);
 
     // This function is marked inline so that when flags is comptime-known,
     // skip_fchmodat_fallback will be comptime-known true.
@@ -603,7 +603,7 @@ pub fn getrandom(buffer: []u8) GetRandomError!void {
     };
     if (@TypeOf(system.getrandom) != void) {
         var buf = buffer;
-        const use_c = native_os != .linux or
+        const use_c = (native_os != .linux and native_os != .android) or
             std.c.versionCheck(std.SemanticVersion{ .major = 2, .minor = 25, .patch = 0 });
 
         while (buf.len != 0) {
@@ -664,7 +664,7 @@ pub fn abort() noreturn {
         }
         windows.kernel32.ExitProcess(3);
     }
-    if (!builtin.link_libc and native_os == .linux) {
+    if (!builtin.link_libc and (native_os == .linux or native_os == .android)) {
         // The Linux man page says that the libc abort() function
         // "first unblocks the SIGABRT signal", but this is a footgun
         // for user-defined signal handlers that want to restore some state in
@@ -717,7 +717,7 @@ pub fn raise(sig: u8) RaiseError!void {
         }
     }
 
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         var set: sigset_t = undefined;
         // block application signals
         sigprocmask(SIG.BLOCK, &linux.app_mask, &set);
@@ -1874,7 +1874,7 @@ pub fn execveZ(
                 .BADARCH => return error.InvalidExe,
                 else => return unexpectedErrno(err),
             },
-            .linux => switch (err) {
+            .linux, .android => switch (err) {
                 .LIBBAD => return error.InvalidExe,
                 else => return unexpectedErrno(err),
             },
@@ -3474,7 +3474,7 @@ pub fn isatty(handle: fd_t) bool {
 
         return true;
     }
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         while (true) {
             var wsz: winsize = undefined;
             const fd: usize = @bitCast(@as(isize, handle));
@@ -5100,7 +5100,7 @@ pub const SeekError = error{
 
 /// Repositions read/write file offset relative to the beginning.
 pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, offset, &result, SEEK.SET))) {
             .SUCCESS => return,
@@ -5143,7 +5143,7 @@ pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
 
 /// Repositions read/write file offset relative to the current offset.
 pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @bitCast(offset), &result, SEEK.CUR))) {
             .SUCCESS => return,
@@ -5185,7 +5185,7 @@ pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
 
 /// Repositions read/write file offset relative to the end.
 pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @bitCast(offset), &result, SEEK.END))) {
             .SUCCESS => return,
@@ -5227,7 +5227,7 @@ pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
 
 /// Returns the read/write file offset relative to the beginning.
 pub fn lseek_CUR_get(fd: fd_t) SeekError!u64 {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, 0, &result, SEEK.CUR))) {
             .SUCCESS => return result,
@@ -5408,7 +5408,7 @@ pub fn realpathZ(pathname: [*:0]const u8, out_buffer: *[max_path_bytes]u8) RealP
     }
     if (!builtin.link_libc) {
         const flags: O = switch (native_os) {
-            .linux => .{
+            .linux, .android => .{
                 .NONBLOCK = true,
                 .CLOEXEC = true,
                 .PATH = true,
@@ -5778,7 +5778,7 @@ pub fn gethostname(name_buffer: *[HOST_NAME_MAX]u8) GetHostNameError![]u8 {
             else => |err| return unexpectedErrno(err),
         }
     }
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         const uts = uname();
         const hostname = mem.sliceTo(&uts.nodename, 0);
         const result = name_buffer[0..hostname.len];
@@ -7270,7 +7270,7 @@ pub fn ptrace(request: u32, pid: pid_t, addr: usize, signal: usize) PtraceError!
         @compileError("Unsupported OS");
 
     return switch (native_os) {
-        .linux => switch (errno(linux.ptrace(request, pid, addr, signal, 0))) {
+        .linux, .android => switch (errno(linux.ptrace(request, pid, addr, signal, 0))) {
             .SUCCESS => {},
             .SRCH => error.ProcessNotFound,
             .FAULT => unreachable,

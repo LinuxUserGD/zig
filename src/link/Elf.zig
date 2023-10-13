@@ -4908,6 +4908,17 @@ const CsuObjects = struct {
             }
         } else {
             switch (target.os.tag) {
+                .android => {
+                    switch (mode) {
+                        // zig fmt: off
+                        .dynamic_lib => result.set( null, null, "crtbegin_so.o",      "crtend_so.o",	  null ),
+                        .dynamic_exe,
+                        .dynamic_pie => result.set( null, null, "crtbegin_dynamic.o", "crtend_android.o", null ),
+                        .static_exe,
+                        .static_pie  => result.set( null, null, "crtbegin_static.o",  "crtend_android.o", null ),
+                        // zig fmt: on
+                    }
+                },
                 .linux => {
                     switch (mode) {
                         // zig fmt: off

@@ -146,7 +146,7 @@ pub fn regBytes(
     const ucontext_ptr = thread_context_ptr;
     return switch (builtin.cpu.arch) {
         .x86 => switch (builtin.os.tag) {
-            .linux, .netbsd, .solaris, .illumos => switch (reg_number) {
+            .linux, .android, .netbsd, .solaris, .illumos => switch (reg_number) {
                 0 => mem.asBytes(&ucontext_ptr.mcontext.gregs[posix.REG.EAX]),
                 1 => mem.asBytes(&ucontext_ptr.mcontext.gregs[posix.REG.ECX]),
                 2 => mem.asBytes(&ucontext_ptr.mcontext.gregs[posix.REG.EDX]),
@@ -181,7 +181,7 @@ pub fn regBytes(
             else => error.UnimplementedOs,
         },
         .x86_64 => switch (builtin.os.tag) {
-            .linux, .solaris, .illumos => switch (reg_number) {
+            .linux, .android, .solaris, .illumos => switch (reg_number) {
                 0 => mem.asBytes(&ucontext_ptr.mcontext.gregs[posix.REG.RAX]),
                 1 => mem.asBytes(&ucontext_ptr.mcontext.gregs[posix.REG.RDX]),
                 2 => mem.asBytes(&ucontext_ptr.mcontext.gregs[posix.REG.RCX]),
@@ -270,7 +270,7 @@ pub fn regBytes(
             else => error.UnimplementedOs,
         },
         .arm => switch (builtin.os.tag) {
-            .linux => switch (reg_number) {
+            .linux, .android => switch (reg_number) {
                 0 => mem.asBytes(&ucontext_ptr.mcontext.arm_r0),
                 1 => mem.asBytes(&ucontext_ptr.mcontext.arm_r1),
                 2 => mem.asBytes(&ucontext_ptr.mcontext.arm_r2),
