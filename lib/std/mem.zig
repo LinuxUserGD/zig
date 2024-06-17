@@ -10,10 +10,13 @@ const native_endian = builtin.cpu.arch.endian();
 
 /// Compile time known minimum page size.
 /// https://github.com/ziglang/zig/issues/4082
-pub const page_size = switch (builtin.cpu.arch) {
+pub const page_size: usize = switch (builtin.cpu.arch) {
     .wasm32, .wasm64 => 64 * 1024,
+    .x86, .x86_64 => 4 * 1024,
     .aarch64 => switch (builtin.os.tag) {
-        .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
+        // .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
+        // Temporarily set macos to the wrong page size for testing.
+        .macos, .ios, .watchos, .tvos, .visionos => 4 * 1024,
         else => 4 * 1024,
     },
     .sparc64 => 8 * 1024,
@@ -27,6 +30,40 @@ pub const page_size = switch (builtin.cpu.arch) {
     },
     else => 4 * 1024,
 };
+
+extern "c" fn sysconf(sc: c_int) c_long;
+
+/// Runtime detected page size.
+pub fn pageSize() usize {
+    switch (builtin.cpu.arch) {
+        .wasm32, .wasm64 => return 64 * 1024,
+        .x86, .x86_64 => 64 * 1024,
+        .aarch64 => switch (builtin.os.tag) {
+            // .macos, .ios, .watchos, .tvos, .visionos => return 16 * 1024,
+            else => {},
+        },
+        .sparc64 => return 8 * 1024,
+        else => {},
+    }
+    // TODO: Replace all comptime/architecture checks above with
+    // runtime/os checks as below.
+    switch (builtin.os.tag) {
+        .linux => {
+            // All zig unistd.h have _SC_PAGE_SIZE = 30; (except macos, 29)
+            if (builtin.link_libc) {
+                return @intCast(sysconf(30));
+            }
+            // TODO: fallback to manual implementation with auxval
+        },
+        .macos => {
+            if (builtin.link_libc) {
+                return @intCast(sysconf(29));
+            }
+        },
+        else => {}
+    }
+    @compileError("Zig does not know how to obtain page size on your system. Try linking libc.");
+}
 
 /// The standard library currently thoroughly depends on byte size
 /// being 8 bits.  (see the use of u8 throughout allocation code as
