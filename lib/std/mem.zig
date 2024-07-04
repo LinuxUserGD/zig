@@ -33,6 +33,8 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
 
 extern "c" fn sysconf(sc: c_int) c_long;
 
+var runtimePageSize = std.atomic.Value(?usize).init(null);
+
 /// Runtime detected page size.
 pub fn pageSize() usize {
     switch (builtin.cpu.arch) {
@@ -45,24 +47,29 @@ pub fn pageSize() usize {
         .sparc64 => return 8 * 1024,
         else => {},
     }
+    if(runtimePageSize.load(.monotonic)) |size| return size;
+    var size: ?usize = null;
     // TODO: Replace all comptime/architecture checks above with
     // runtime/os checks as below.
     switch (builtin.os.tag) {
         .linux => {
-            // All zig unistd.h have _SC_PAGE_SIZE = 30; (except macos, 29)
             if (builtin.link_libc) {
-                return @intCast(sysconf(30));
+                // All zig unistd.h have _SC_PAGE_SIZE = 30; (except macos, 29)
+                size = @intCast(sysconf(30));
+            } else {
+                size = std.c.getauxval(std.elf.AT_PAGESZ);
             }
-            // TODO: fallback to manual implementation with auxval
         },
         .macos => {
             if (builtin.link_libc) {
-                return @intCast(sysconf(29));
+                size = @intCast(sysconf(29));
             }
         },
         else => {}
     }
-    @compileError("Zig does not know how to obtain page size on your system. Try linking libc.");
+    if(size) |s| runtimePageSize.store(s, .monotonic) else {
+        @compileError("Zig does not know how to obtain page size on your system. Try linking libc.");
+    }
 }
 
 /// The standard library currently thoroughly depends on byte size
