@@ -67,13 +67,13 @@ pub fn pageSize() usize {
         else => {}
     }
     switch (builtin.cpu.arch) {
-        .wasm32, .wasm64 => return 64 * 1024,
-        .x86, .x86_64 => 64 * 1024,
+        .wasm32, .wasm64 => size = 64 * 1024,
+        .x86, .x86_64 => size = 64 * 1024,
         .aarch64 => switch (builtin.os.tag) {
-            .macos, .ios, .watchos, .tvos, .visionos => return 16 * 1024,
+            .macos, .ios, .watchos, .tvos, .visionos => size = 16 * 1024,
             else => {},
         },
-        .sparc64 => return 8 * 1024,
+        .sparc64 => size = 8 * 1024,
         else => {},
     }
     if(size != 0) runtimePageSize.store(size, .monotonic) else {
