@@ -37,20 +37,8 @@ var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
 pub fn pageSize() usize {
-    switch (builtin.cpu.arch) {
-        .wasm32, .wasm64 => return 64 * 1024,
-        .x86, .x86_64 => 64 * 1024,
-        .aarch64 => switch (builtin.os.tag) {
-            // .macos, .ios, .watchos, .tvos, .visionos => return 16 * 1024,
-            else => {},
-        },
-        .sparc64 => return 8 * 1024,
-        else => {},
-    }
     var size = runtimePageSize.load(.monotonic);
     if(size > 0) return size;
-    // TODO: Replace all comptime/architecture checks above with
-    // runtime/os checks as below.
     switch (builtin.os.tag) {
         .linux => {
             if (builtin.link_libc) {
@@ -66,6 +54,16 @@ pub fn pageSize() usize {
             }
         },
         else => {}
+    }
+    switch (builtin.cpu.arch) {
+        .wasm32, .wasm64 => return 64 * 1024,
+        .x86, .x86_64 => 64 * 1024,
+        .aarch64 => switch (builtin.os.tag) {
+            // .macos, .ios, .watchos, .tvos, .visionos => return 16 * 1024,
+            else => {},
+        },
+        .sparc64 => return 8 * 1024,
+        else => {},
     }
     if(size != 0) runtimePageSize.store(size, .monotonic) else {
         @panic("Zig does not know how to obtain the page size on your system. Try linking libc.");
