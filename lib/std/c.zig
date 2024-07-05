@@ -9752,7 +9752,7 @@ const private = struct {
     extern "c" fn __getrusage50(who: c_int, usage: *rusage) c_int;
     extern "c" fn __gettimeofday50(noalias tv: ?*timeval, noalias tz: ?*timezone) c_int;
     extern "c" fn __libc_thr_yield() c_int;
-    extern "c" fn __msync13(addr: *align(std.mem.page_size) const anyopaque, len: usize, flags: c_int) c_int;
+    extern "c" fn __msync13(addr: *align(page_size) const anyopaque, len: usize, flags: c_int) c_int;
     extern "c" fn __nanosleep50(rqtp: *const timespec, rmtp: ?*timespec) c_int;
     extern "c" fn __sigaction14(sig: c_int, noalias act: ?*const Sigaction, noalias oact: ?*Sigaction) c_int;
     extern "c" fn __sigfillset14(set: ?*sigset_t) void;

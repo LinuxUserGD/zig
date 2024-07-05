@@ -159,7 +159,7 @@ pub const ElfDynLib = struct {
         // corresponding to the actual LOAD sections.
         const file_bytes = try posix.mmap(
             null,
-            mem.alignForward(usize, size, mem.page_size),
+            mem.alignForward(usize, size, mem.pageSize()),
             posix.PROT.READ,
             .{ .TYPE = .PRIVATE },
             fd,
@@ -220,9 +220,9 @@ pub const ElfDynLib = struct {
                     elf.PT_LOAD => {
                         // The VirtAddr may not be page-aligned; in such case there will be
                         // extra nonsense mapped before/after the VirtAddr,MemSiz
-                        const aligned_addr = (base + ph.p_vaddr) & ~(@as(usize, mem.page_size) - 1);
+                        const aligned_addr = (base + ph.p_vaddr) & ~(@as(usize, mem.pageSize()) - 1);
                         const extra_bytes = (base + ph.p_vaddr) - aligned_addr;
-                        const extended_memsz = mem.alignForward(usize, ph.p_memsz + extra_bytes, mem.page_size);
+                        const extended_memsz = mem.alignForward(usize, ph.p_memsz + extra_bytes, mem.pageSize());
                         const ptr = @as([*]align(mem.page_size) u8, @ptrFromInt(aligned_addr));
                         const prot = elfToMmapProt(ph.p_flags);
                         if ((ph.p_flags & elf.PF_W) == 0) {

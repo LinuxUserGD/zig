@@ -258,7 +258,7 @@ pub const wasm_allocator = Allocator{
 /// Verifies that the adjusted length will still map to the full length
 pub fn alignPageAllocLen(full_len: usize, len: usize) usize {
     const aligned_len = mem.alignAllocLen(full_len, len);
-    assert(mem.alignForward(usize, aligned_len, mem.page_size) == full_len);
+    assert(mem.alignForward(usize, aligned_len, mem.pageSize()) == full_len);
     return aligned_len;
 }
 
@@ -619,13 +619,13 @@ test "PageAllocator" {
     }
 
     if (builtin.os.tag == .windows) {
-        const slice = try allocator.alignedAlloc(u8, mem.page_size, 128);
+        const slice = try allocator.alignedAlloc(u8, mem.pageSize(), 128);
         slice[0] = 0x12;
         slice[127] = 0x34;
         allocator.free(slice);
     }
     {
-        var buf = try allocator.alloc(u8, mem.page_size + 1);
+        var buf = try allocator.alloc(u8, mem.pageSize() + 1);
         defer allocator.free(buf);
         buf = try allocator.realloc(buf, 1); // shrink past the page boundary
     }
@@ -861,7 +861,7 @@ pub fn testAllocatorAlignedShrink(base_allocator: mem.Allocator) !void {
     var fib = FixedBufferAllocator.init(&debug_buffer);
     const debug_allocator = fib.allocator();
 
-    const alloc_size = mem.page_size * 2 + 50;
+    const alloc_size = mem.pageSize() * 2 + 50;
     var slice = try allocator.alignedAlloc(u8, 16, alloc_size);
     defer allocator.free(slice);
 
@@ -870,7 +870,7 @@ pub fn testAllocatorAlignedShrink(base_allocator: mem.Allocator) !void {
     // which is 16 pages, hence the 32. This test may require to increase
     // the size of the allocations feeding the `allocator` parameter if they
     // fail, because of this high over-alignment we want to have.
-    while (@intFromPtr(slice.ptr) == mem.alignForward(usize, @intFromPtr(slice.ptr), mem.page_size * 32)) {
+    while (@intFromPtr(slice.ptr) == mem.alignForward(usize, @intFromPtr(slice.ptr), mem.pageSize() * 32)) {
         try stuff_to_free.append(slice);
         slice = try allocator.alignedAlloc(u8, 16, alloc_size);
     }
