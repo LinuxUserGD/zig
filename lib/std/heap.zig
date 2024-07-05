@@ -619,7 +619,7 @@ test "PageAllocator" {
     }
 
     if (builtin.os.tag == .windows) {
-        const slice = try allocator.alignedAlloc(u8, mem.pageSize(), 128);
+        const slice = try allocator.alignedAlloc(u8, mem.page_size, 128);
         slice[0] = 0x12;
         slice[127] = 0x34;
         allocator.free(slice);

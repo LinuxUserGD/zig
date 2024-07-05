@@ -41,7 +41,9 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
     else => 4 * 1024,
 };
 
-extern "c" fn sysconf(sc: c_int) c_long;
+const sysconf = if (builtin.link_libc) struct {
+    extern fn sysconf(sc: c_int) c_long;
+}.sysconf else null;
 
 var runtimePageSize = std.atomic.Value(usize).init(0);
 
@@ -56,7 +58,7 @@ pub fn pageSize() usize {
                 // All zig unistd.h have _SC_PAGE_SIZE = 30; (except macos, 29)
                 size = @intCast(sysconf(30));
             } else {
-                size = std.c.getauxval(std.elf.AT_PAGESZ);
+                size = std.os.linux.getauxval(std.elf.AT_PAGESZ);
             }
         },
         .macos => {

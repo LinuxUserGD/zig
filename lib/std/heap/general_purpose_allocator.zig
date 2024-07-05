@@ -212,7 +212,7 @@ pub fn GeneralPurposeAllocator(comptime config: Config) type {
         fn largest_bucket_object_size() usize {
             const cached = largest_bucket_object_size_cache.load(.monotonic);
             if(cached != 0) { return cached; }
-            const val = @as(usize, @intCast(1)) << @as(u6, @intCast(small_bucket_count() - 1));
+            const val = @as(usize, 1) << @truncate(small_bucket_count() - 1);
             largest_bucket_object_size_cache.store(val, .monotonic);
             return val;
         }
