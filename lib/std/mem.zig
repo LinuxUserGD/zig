@@ -70,7 +70,7 @@ pub fn pageSize() usize {
     }
     switch (builtin.cpu.arch) {
         .wasm32, .wasm64 => size = 64 * 1024,
-        .x86, .x86_64 => size = 64 * 1024,
+        .x86, .x86_64 => size = 4 * 1024,
         .aarch64 => switch (builtin.os.tag) {
             .macos, .ios, .watchos, .tvos, .visionos => size = 16 * 1024,
             else => {},
