@@ -13,8 +13,7 @@ pub const page_size_cap: usize = switch(builtin.cpu.arch) {
     .wasm32, .wasm64 => 64 * 1024,
     .x86, .x86_64 => 4 * 1024,
     .aarch64 => switch (builtin.os.tag) {
-        // .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
-        // Temporarily set macos to the wrong page size for testing.
+        .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
         else => 64 * 1024,
     },
     .sparc64 => 8 * 1024,
@@ -27,8 +26,7 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
     .wasm32, .wasm64 => 64 * 1024,
     .x86, .x86_64 => 4 * 1024,
     .aarch64 => switch (builtin.os.tag) {
-        // .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
-        // Temporarily set macos to the wrong page size for testing.
+        .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
         else => 4 * 1024,
     },
     .sparc64 => 8 * 1024,
@@ -72,7 +70,7 @@ pub fn pageSize() usize {
         .wasm32, .wasm64 => return 64 * 1024,
         .x86, .x86_64 => 64 * 1024,
         .aarch64 => switch (builtin.os.tag) {
-            // .macos, .ios, .watchos, .tvos, .visionos => return 16 * 1024,
+            .macos, .ios, .watchos, .tvos, .visionos => return 16 * 1024,
             else => {},
         },
         .sparc64 => return 8 * 1024,
