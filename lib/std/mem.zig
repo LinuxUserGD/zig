@@ -49,7 +49,7 @@ var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
 pub fn pageSize() usize {
-    const cachedSize: usize = runtimePageSize.load(std.builtin.AtomicOrder.monotonic);
+    const cachedSize: usize = runtimePageSize.load(.monotonic);
     if(cachedSize > 0) return cachedSize;
     var size: usize = 0;
     switch (builtin.os.tag) {
