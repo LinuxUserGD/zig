@@ -8,7 +8,7 @@ const testing = std.testing;
 const Endian = std.builtin.Endian;
 const native_endian = builtin.cpu.arch.endian();
 
-/// An compile time known upper bound on page size for this platform.
+/// A compile time known upper bound on page size.
 pub const page_size_cap: usize = switch(builtin.cpu.arch) {
     .wasm32, .wasm64 => 64 * 1024,
     .x86, .x86_64 => 4 * 1024,
