@@ -49,37 +49,57 @@ var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
 pub fn pageSize() usize {
-    const cachedSize: usize = runtimePageSize.load(.monotonic);
-    if(cachedSize > 0) return cachedSize;
-    var size: usize = 0;
-    switch (builtin.os.tag) {
-        .linux => {
-            if (builtin.link_libc) {
-                // All zig unistd.h have _SC_PAGE_SIZE = 30; (except macos, 29)
-                size = @intCast(sysconf(30));
-            } else {
-                size = std.os.linux.getauxval(std.elf.AT_PAGESZ);
-            }
-        },
-        .macos => {
-            if (builtin.link_libc) {
-                size = @intCast(sysconf(29));
-            }
-        },
-        else => {}
+    // "Windows CE for ARM920 took advantage of [1KB subpages] and used 1KB "pages". All other
+    // flavors of Windows use the native 4KB pages."
+    //
+    // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
+    if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) {
+        switch (builtin.cpu.arch) {
+            .x86, .x86_64 => return 4 << 10,
+            // SuperH => return 4 << 10,
+            .mips, .mipsel, .mips64, .mips64el => return 4 << 10,
+            .powerpc, .powerpcle, .powerpc64, .powerpc64le => return 4 << 10,
+            // DEC Alpha => return 8 << 10,
+            // Itanium => return 8 << 10,
+            .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => return 4 << 10,
+            else => {}
+        }
     }
     switch (builtin.cpu.arch) {
-        .wasm32, .wasm64 => size = 64 * 1024,
-        .x86, .x86_64 => size = 4 * 1024,
-        .aarch64 => switch (builtin.os.tag) {
-            .macos, .ios, .watchos, .tvos, .visionos => size = 16 * 1024,
-            else => {},
-        },
-        .sparc64 => size = 8 * 1024,
-        else => {},
+        // "[...] each page is sized 64KiB."
+        //
+        // -- <https://developer.mozilla.org/en-US/docs/webassembly/reference/memory/size>
+        .wasm32, .wasm64 => return 64 << 10,
+        // "That selection is only valid for i386 hardware. If you run a
+        // 64-bit system [or any other architecture; sic], the page size is
+        // 4K and cannot be changed."
+        //
+        // -- <https://unix.stackexchange.com/a/80736>
+        .x86_64 => return 4 << 10,
+        else => {}
     }
-    if(size != 0) runtimePageSize.store(size, .monotonic) else {
-        @panic("Zig does not know how to obtain the page size on your system. Try linking libc.");
+    return queryPageSize();
+}
+
+// Runtime queried page size.
+fn queryPageSize() usize {
+    var size = runtimePageSize.load(.unordered);
+    if(size > 0) return size;
+    defer {
+        std.debug.assert(size > 0);
+        std.debug.assert(size >= page_size);
+        std.debug.assert(size <= page_size_cap);
+        runtimePageSize.store(size, .unordered);
+    }
+    switch (builtin.os.tag) {
+        .linux => size = if (builtin.link_libc) @intCast(sysconf(std.os.linux.SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
+        .macos => blk: { size = @import("../../src/link/MachO.zig").machTaskForSelf().getPageSize() catch break :blk; },
+        .windows => {
+            var info: std.os.windows.SYSTEM_INFO = undefined;
+            std.os.windows.kernel32.GetSystemInfo(&info);
+            size = info.dwPageSize;
+        },
+        else => if (@hasDecl(std.c.SC, "PAGE_SIZE")) { size = sysconf(std.c.SC.PAGE_SIZE); } else {},
     }
     return size;
 }
