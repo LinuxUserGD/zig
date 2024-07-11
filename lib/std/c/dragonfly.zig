@@ -7,10 +7,6 @@ const pid_t = std.c.pid_t;
 const socklen_t = std.c.socklen_t;
 const uid_t = std.c.uid_t;
 
-pub const _SC = struct {
-    pub const PAGESIZE = 47;
-};
-
 pub extern "c" fn lwp_gettid() c_int;
 pub extern "c" fn umtx_sleep(ptr: *const volatile c_int, value: c_int, timeout: c_int) c_int;
 pub extern "c" fn umtx_wakeup(ptr: *const volatile c_int, count: c_int) c_int;

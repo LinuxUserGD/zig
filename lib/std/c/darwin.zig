@@ -300,10 +300,6 @@ pub const mach_hdr = if (@sizeOf(usize) == 8) mach_header_64 else mach_header;
 pub const mach_header_64 = std.macho.mach_header_64;
 pub const mach_header = std.macho.mach_header;
 
-pub const _SC = struct {
-    pub const PAGESIZE = 29;
-};
-
 pub extern "c" fn @"close$NOCANCEL"(fd: fd_t) c_int;
 pub extern "c" fn mach_host_self() mach_port_t;
 pub extern "c" fn clock_get_time(clock_serv: clock_serv_t, cur_time: *mach_timespec_t) kern_return_t;

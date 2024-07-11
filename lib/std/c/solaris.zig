@@ -22,11 +22,6 @@ comptime {
 pub extern "c" fn pthread_setname_np(thread: pthread_t, name: [*:0]const u8, arg: ?*anyopaque) c_int;
 pub extern "c" fn sysconf(sc: c_int) i64;
 
-pub const _SC = struct {
-    pub const PAGESIZE = 11;
-    pub const NPROCESSORS_ONLN = 15;
-};
-
 pub const major_t = u32;
 pub const minor_t = u32;
 pub const id_t = i32;
@@ -159,13 +154,6 @@ pub const AF_SUN = struct {
     pub const NOPLM = 0x00000004;
 };
 
-<<<<<<< HEAD
-pub const _SC = struct {
-    pub const NPROCESSORS_ONLN = 15;
-};
-
-=======
->>>>>>> 98ea2780df (page size: merge abi bits from @matu3ba)
 pub const procfs = struct {
     pub const misc_header = extern struct {
         size: u32,

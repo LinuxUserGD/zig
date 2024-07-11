@@ -100,10 +100,6 @@ pub const utsname = linux.utsname;
 pub const winsize = linux.winsize;
 pub const PR = linux.PR;
 
-pub const _SC = struct {
-    pub const PAGESIZE = 30;
-};
-
 pub const _errno = switch (native_abi) {
     .android => struct {
         extern fn __errno() *c_int;

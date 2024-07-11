@@ -2206,6 +2206,41 @@ pub const SC = switch (native_os) {
     .linux, .android => linux.SC,
     else => void,
 };
+
+pub const _SC = switch (native_os) {
+    .darwin => struct {
+        pub const PAGESIZE = 29;
+    },
+    .dragonfly => struct {
+        pub const PAGESIZE = 47;
+    },
+    .freebsd => struct {
+        pub const PAGESIZE = 47;
+    },
+    .fuchsia => struct {
+        pub const PAGESIZE = 30;
+    },
+    .haiku => struct {
+        pub const PAGESIZE = 27;
+    },
+    .linux => struct {
+        pub const PAGESIZE = 30;
+    },
+    .minix => struct {
+        pub const PAGESIZE = 28;
+    },
+    .netbsd => struct {
+        pub const PAGESIZE = 28;
+    },
+    .openbsd => struct {
+        pub const PAGESIZE = 28;
+    },
+    .solaris => struct {
+        pub const PAGESIZE = 11;
+        pub const NPROCESSORS_ONLN = 15;
+    },
+}
+
 pub const SEEK = switch (native_os) {
     .linux, .android => linux.SEEK,
     .emscripten => emscripten.SEEK,
@@ -9427,7 +9462,6 @@ pub const SCM = solaris.SCM;
 pub const SETCONTEXT = solaris.SETCONTEXT;
 pub const SETUSTACK = solaris.GETUSTACK;
 pub const SFD = solaris.SFD;
-pub const _SC = solaris._SC;
 pub const cmsghdr = solaris.cmsghdr;
 pub const ctid_t = solaris.ctid_t;
 pub const file_obj = solaris.file_obj;
