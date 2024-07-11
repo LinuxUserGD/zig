@@ -41,10 +41,6 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
     else => 4 * 1024,
 };
 
-const sysconf = if (builtin.link_libc) struct {
-    extern fn sysconf(sc: c_int) c_long;
-}.sysconf else null;
-
 var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
@@ -92,14 +88,14 @@ fn queryPageSize() usize {
         runtimePageSize.store(size, .unordered);
     }
     switch (builtin.os.tag) {
-        .linux => size = if (builtin.link_libc) @intCast(sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
+        .linux => size = if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .macos => blk: { size = @import("../../src/link/MachO.zig").machTaskForSelf().getPageSize() catch break :blk; },
         .windows => {
             var info: std.os.windows.SYSTEM_INFO = undefined;
             std.os.windows.kernel32.GetSystemInfo(&info);
             size = info.dwPageSize;
         },
-        else => if (@hasDecl(std.c._SC, "PAGE_SIZE")) { size = sysconf(std.c._SC.PAGE_SIZE); } else {},
+        else => if (@hasDecl(std.c._SC, "PAGE_SIZE")) { size = std.c.sysconf(std.c._SC.PAGE_SIZE); } else {},
     }
     return size;
 }
