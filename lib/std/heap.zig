@@ -36,7 +36,7 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
 var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
-pub fn pageSize() usize {
+pub inline fn pageSize() usize {
     if (@inComptime()) { @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead."); }
     // "Windows CE for ARM920 took advantage of [1KB subpages] and used 1KB "pages". All other
     // flavors of Windows use the native 4KB pages."
