@@ -14,7 +14,7 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
     .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be =>
-        if (builtin.os.tag == .macos) 16 << 10 else 64 << 10,
+        if (builtin.os.tag.isDarwin()) 16 << 10 else 64 << 10,
     // Explicitly only 4kb.
     // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
     .s390x => 4 << 10,
@@ -41,7 +41,7 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
     .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be =>
-        if (builtin.os.tag == .macos) 16 << 10 else 4 << 10,
+        if (builtin.os.tag.isDarwin()) 16 << 10 else 4 << 10,
     // Explicitly only 4kb.
     // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
     .s390x => 4 << 10,
