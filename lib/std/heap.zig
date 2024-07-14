@@ -9,15 +9,30 @@ const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
 /// A compile time known upper bound on page size.
-pub const page_size_cap: usize = switch(builtin.cpu.arch) {
-    .wasm32, .wasm64 => 64 * 1024,
-    .x86, .x86_64 => 4 * 1024,
-    .aarch64 => switch (builtin.os.tag) {
-        .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
-        else => 64 * 1024,
-    },
-    .sparc64 => 8 * 1024,
-    else => 4 * 1024,
+pub const page_size: usize = switch (builtin.cpu.arch) {
+    // Common knowledge.
+    .wasm32, .wasm64 => 64 << 10,
+    .x86, .x86_64 => 4 << 10,
+    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be =>
+        if (builtin.os.tag == .macos) 16 << 10 else 64 << 10,
+    // Explicitly only 4kb.
+    // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
+    .s390x => 4 << 10,
+    // Source: Linux mips/Kconfig.
+    .mips, .mipsel, .mips64, .mips64el, .loongarch32, .loongarch64 => 64 << 10,
+    // Source: csky/Kconfig only selects HAVE_PAGE_SIZE_4KB.
+    .csky => 4 << 10,
+    // Source: Hexagon's page.h in Linux accepts CONFIG_PAGE_SIZE_1MB.
+    .hexagon => 1024 << 10,
+    // Source: Zig's own libc page.h for arc.
+    .arc => 16 << 10,
+    // Source: Wikipedia "Page (computer memory)"
+    .powerpc, .powerpc64, .powerpc64le, .powerpcle => 64 << 10,
+    .riscv32, .riscv64 => 4 << 10,
+    .sparc, .sparcel => 256 << 10,
+    .sparc64 => 64 << 10,
+    // Rare architectures with little support.
+    else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
 };
 
 /// Compile time known minimum page size.
