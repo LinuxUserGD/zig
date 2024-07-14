@@ -1092,7 +1092,7 @@ test printLineFromFileAnyOs {
         try expectError(error.EndOfFile, printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 2, .column = 0 }));
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** (3 * heap.page_size)) ++ "\n", output.items);
+        try expectEqualStrings(("a" ** (3 * heap.page_size_cap)) ++ "\n", output.items);
         output.clearRetainingCapacity();
 
         try writer.writeAll("a\na");
