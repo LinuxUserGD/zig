@@ -9,7 +9,7 @@ const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
 /// A compile time known upper bound on page size.
-pub const page_size: usize = switch (builtin.cpu.arch) {
+pub const page_size_cap: usize = switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
