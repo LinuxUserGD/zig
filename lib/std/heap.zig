@@ -8,13 +8,39 @@ const c = std.c;
 const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
+const page_size_darwin: ?comptime_int = if (builtin.os.tag.isDarwin())
+    switch (builtin.cpu.arch) {
+        .x86, .x86_64 => 4 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 16 << 10,
+        else => null
+    }
+else null;
+
+// "Windows CE for ARM920 took advantage of [1KB subpages] and used 1KB
+// "pages". All other flavors of Windows use the native 4KB pages."
+//
+// -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
+const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) {
+    switch (builtin.cpu.arch) {
+        .x86, .x86_64 => 4 << 10,
+        // SuperH => 4 << 10,
+        .mips, .mipsel, .mips64, .mips64el => 4 << 10,
+        .powerpc, .powerpcle, .powerpc64, .powerpc64le => 4 << 10,
+        // DEC Alpha => 8 << 10,
+        // Itanium => 8 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 4 << 10,
+        else => null
+    }
+} else null;
+
+const page_size_os: ?comptime_int = page_size_darwin orelse page_size_windows;
+
 /// A compile time known upper bound on page size.
-pub const page_size_cap: usize = switch (builtin.cpu.arch) {
+pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
-    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be =>
-        if (builtin.os.tag.isDarwin()) 16 << 10 else 64 << 10,
+    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be => 64 << 10,
     // Explicitly only 4kb.
     // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
     .s390x => 4 << 10,
@@ -36,12 +62,11 @@ pub const page_size_cap: usize = switch (builtin.cpu.arch) {
 };
 
 /// Compile time known minimum page size.
-pub const page_size: usize = switch (builtin.cpu.arch) {
+pub const page_size: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
-    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be =>
-        if (builtin.os.tag.isDarwin()) 16 << 10 else 4 << 10,
+    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be => 4 << 10,
     // Explicitly only 4kb.
     // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
     .s390x => 4 << 10,
@@ -67,36 +92,12 @@ var runtimePageSize = std.atomic.Value(usize).init(0);
 /// Runtime detected page size.
 pub inline fn pageSize() usize {
     if (@inComptime()) { @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead."); }
-    // "Windows CE for ARM920 took advantage of [1KB subpages] and used 1KB "pages". All other
-    // flavors of Windows use the native 4KB pages."
-    //
-    // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
-    if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) {
-        switch (builtin.cpu.arch) {
-            .x86, .x86_64 => return 4 << 10,
-            // SuperH => return 4 << 10,
-            .mips, .mipsel, .mips64, .mips64el => return 4 << 10,
-            .powerpc, .powerpcle, .powerpc64, .powerpc64le => return 4 << 10,
-            // DEC Alpha => return 8 << 10,
-            // Itanium => return 8 << 10,
-            .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => return 4 << 10,
-            else => {}
-        }
+    if (page_size == page_size_cap) {
+        assert(queryPageSize() == page_size);
+        return page_size;
     }
-    switch (builtin.cpu.arch) {
-        // "[...] each page is sized 64KiB."
-        //
-        // -- <https://developer.mozilla.org/en-US/docs/webassembly/reference/memory/size>
-        .wasm32, .wasm64 => return 64 << 10,
-        // "That selection is only valid for i386 hardware. If you run a
-        // 64-bit system [or any other architecture; sic], the page size is
-        // 4K and cannot be changed."
-        //
-        // -- <https://unix.stackexchange.com/a/80736>
-        .x86_64 => return 4 << 10,
-        else => {}
-    }
-    return queryPageSize();
+    const size = queryPageSize();
+    return size;
 }
 
 // Runtime queried page size.
