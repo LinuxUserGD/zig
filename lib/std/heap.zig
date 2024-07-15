@@ -16,9 +16,6 @@ const page_size_darwin: ?comptime_int = if (builtin.os.tag.isDarwin())
     }
 else null;
 
-// "Windows CE for ARM920 took advantage of [1KB subpages] and used 1KB
-// "pages". All other flavors of Windows use the native 4KB pages."
-//
 // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
 const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) {
     switch (builtin.cpu.arch) {
