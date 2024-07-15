@@ -140,7 +140,7 @@ fn queryPageSize() usize {
             std.os.windows.kernel32.GetSystemInfo(&info);
             size = info.dwPageSize;
         },
-        else => if (@hasDecl(std.c._SC, "PAGE_SIZE")) { size = std.c.sysconf(std.c._SC.PAGE_SIZE); } else {},
+        else => if (@hasDecl(std.c, "_SC") and @hasDecl(std.c._SC, "PAGE_SIZE")) { size = std.c.sysconf(std.c._SC.PAGE_SIZE); } else {},
     }
     return size;
 }
