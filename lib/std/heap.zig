@@ -17,8 +17,8 @@ const page_size_darwin: ?comptime_int = if (builtin.os.tag.isDarwin())
 else null;
 
 // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
-const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) {
-    switch (builtin.cpu.arch) {
+const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) blk: {
+    break :blk switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         // SuperH => 4 << 10,
         .mips, .mipsel, .mips64, .mips64el => 4 << 10,
@@ -27,7 +27,7 @@ const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and buil
         // Itanium => 8 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 4 << 10,
         else => null
-    }
+    };
 } else null;
 
 const page_size_os: ?comptime_int = page_size_darwin orelse page_size_windows;
