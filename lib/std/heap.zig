@@ -94,10 +94,12 @@ pub inline fn pageSize() usize {
         @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead.");
     }
     if (page_size == page_size_cap) {
-        assert(queryPageSize() == page_size);
+        if (queryPageSize() != 0)
+            assert(queryPageSize() == page_size);
         return page_size;
     }
     const size = queryPageSize();
+    std.debug.assert(size > 0);
     return size;
 }
 
@@ -106,9 +108,10 @@ fn queryPageSize() usize {
     var size = runtimePageSize.load(.unordered);
     if (size > 0) return size;
     defer {
-        std.debug.assert(size > 0);
-        std.debug.assert(size >= page_size);
-        std.debug.assert(size <= page_size_cap);
+        if (size != 0) {
+            std.debug.assert(size >= page_size);
+            std.debug.assert(size <= page_size_cap);
+        }
         runtimePageSize.store(size, .unordered);
     }
     switch (builtin.os.tag) {
