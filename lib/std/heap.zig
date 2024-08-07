@@ -81,7 +81,32 @@ fn queryPageSize() usize {
     }
     switch (builtin.os.tag) {
         .linux => size = if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
-        .macos => blk: { size = @import("../../src/link/MachO.zig").machTaskForSelf().getPageSize() catch break :blk };
+        .macos => blk: {
+            if (!builtin.link_libc) break :blk;
+            const task_port = std.c.mach_task_self();
+            // TODO: Either check the KernE enum, or prove that these operations cannot error.
+            if (task_port != std.c.TASK_NULL) {
+                var info_count = std.c.TASK_VM_INFO_COUNT;
+                var vm_info: std.c.task_vm_info_data_t = undefined;
+                switch (std.c.task_info(
+                    task_port,
+                    std.c.TASK_VM_INFO,
+                    @as(std.c.task_info_t, @ptrCast(&vm_info)),
+                    &info_count,
+                )) {
+                    0 => {
+                        size = @as(usize, @intCast(vm_info.page_size));
+                        break :blk;
+                    },
+                    else => {},
+                }
+            }
+            var vm_page_size: std.c.vm_size_t = undefined;
+            switch (std.c._host_page_size(std.c.mach_host_self(), &vm_page_size)) {
+                0 => size = vm_page_size,
+                else => {}
+            }
+        },
         .windows => {
             var info: std.os.windows.SYSTEM_INFO = undefined;
             std.os.windows.kernel32.GetSystemInfo(&info);
