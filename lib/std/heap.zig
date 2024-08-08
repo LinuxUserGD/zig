@@ -12,12 +12,14 @@ const page_size_darwin: ?comptime_int = if (builtin.os.tag.isDarwin())
     switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 16 << 10,
-        else => null
+        else => null,
     }
-else null;
+else
+    null;
 
 // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
-const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) blk: {
+const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp))
+blk: {
     break :blk switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         // SuperH => 4 << 10,
@@ -26,7 +28,7 @@ const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and buil
         // DEC Alpha => 8 << 10,
         // Itanium => 8 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 4 << 10,
-        else => null
+        else => null,
     };
 } else null;
 
@@ -88,7 +90,9 @@ var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
 pub inline fn pageSize() usize {
-    if (@inComptime()) { @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead."); }
+    if (@inComptime()) {
+        @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead.");
+    }
     if (page_size == page_size_cap) {
         assert(queryPageSize() == page_size);
         return page_size;
@@ -100,7 +104,7 @@ pub inline fn pageSize() usize {
 // Runtime queried page size.
 fn queryPageSize() usize {
     var size = runtimePageSize.load(.unordered);
-    if(size > 0) return size;
+    if (size > 0) return size;
     defer {
         std.debug.assert(size > 0);
         std.debug.assert(size >= page_size);
@@ -132,7 +136,7 @@ fn queryPageSize() usize {
             var vm_page_size: std.c.vm_size_t = undefined;
             switch (std.c._host_page_size(std.c.mach_host_self(), &vm_page_size)) {
                 0 => size = vm_page_size,
-                else => {}
+                else => {},
             }
         },
         .windows => {
@@ -140,7 +144,9 @@ fn queryPageSize() usize {
             std.os.windows.kernel32.GetSystemInfo(&info);
             size = info.dwPageSize;
         },
-        else => if (@hasDecl(std.c, "_SC") and @hasDecl(std.c._SC, "PAGE_SIZE")) { size = std.c.sysconf(std.c._SC.PAGE_SIZE); } else {},
+        else => if (@hasDecl(std.c, "_SC") and @hasDecl(std.c._SC, "PAGE_SIZE")) {
+            size = std.c.sysconf(std.c._SC.PAGE_SIZE);
+        } else {},
     }
     return size;
 }

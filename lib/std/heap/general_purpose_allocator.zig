@@ -203,7 +203,9 @@ pub fn GeneralPurposeAllocator(comptime config: Config) type {
         var small_bucket_count_cache = std.atomic.Value(usize).init(0);
         fn small_bucket_count() usize {
             const cached = small_bucket_count_cache.load(.monotonic);
-            if(cached != 0) { return cached; }
+            if (cached != 0) {
+                return cached;
+            }
             const val = math.log2(pageSize());
             small_bucket_count_cache.store(val, .monotonic);
             return val;
@@ -211,7 +213,9 @@ pub fn GeneralPurposeAllocator(comptime config: Config) type {
         var largest_bucket_object_size_cache = std.atomic.Value(usize).init(0);
         fn largest_bucket_object_size() usize {
             const cached = largest_bucket_object_size_cache.load(.monotonic);
-            if(cached != 0) { return cached; }
+            if (cached != 0) {
+                return cached;
+            }
             const val = @as(usize, 1) << @truncate(small_bucket_count() - 1);
             largest_bucket_object_size_cache.store(val, .monotonic);
             return val;
