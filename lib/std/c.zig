@@ -2239,6 +2239,7 @@ pub const _SC = switch (native_os) {
         pub const PAGESIZE = 11;
         pub const NPROCESSORS_ONLN = 15;
     },
+    else => void,
 };
 
 pub const SEEK = switch (native_os) {
