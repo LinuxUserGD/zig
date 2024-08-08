@@ -2208,7 +2208,7 @@ pub const SC = switch (native_os) {
 };
 
 pub const _SC = switch (native_os) {
-    .darwin => struct {
+    .ios, .macos, .watchos, .tvos, .visionos => struct {
         pub const PAGESIZE = 29;
     },
     .dragonfly => struct {
