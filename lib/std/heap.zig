@@ -147,7 +147,7 @@ fn queryPageSize() usize {
             std.os.windows.kernel32.GetSystemInfo(&info);
             size = info.dwPageSize;
         },
-        else => if (@hasDecl(std.c, "_SC") and @hasDecl(std.c._SC, "PAGE_SIZE")) {
+        else => if (builtin.link_libc and std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void) {
             size = std.c.sysconf(std.c._SC.PAGE_SIZE);
         } else {},
     }
