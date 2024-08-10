@@ -518,7 +518,7 @@ pub fn initStatic(phdrs: []elf.Phdr) void {
         );
         if (@as(isize, @bitCast(begin_addr)) < 0) @trap();
 
-        const area_ptr: [*]align(mem.page_size) u8 = @ptrFromInt(begin_addr);
+        const area_ptr: [*]align(heap.page_size) u8 = @ptrFromInt(begin_addr);
 
         // Make sure the slice is correctly aligned.
         const begin_aligned_addr = alignForward(begin_addr, area_desc.alignment);

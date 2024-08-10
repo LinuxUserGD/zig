@@ -7,7 +7,7 @@ const native_os = builtin.os.tag;
 const std = @import("../std.zig");
 const posix = std.posix;
 const File = std.fs.File;
-const page_size = std.mem.page_size;
+const page_size = std.heap.page_size;
 
 const MemoryAccessor = @This();
 
