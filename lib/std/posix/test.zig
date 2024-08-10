@@ -1321,7 +1321,7 @@ const CommonOpenFlags = packed struct {
 };
 
 test "pageSize() smoke test" {
-    const size = std.mem.pageSize();
+    const size = std.heap.pageSize();
     // Check that pageSize is a power of 2.
     std.debug.assert(size == (1 << @ctz(size));
 }

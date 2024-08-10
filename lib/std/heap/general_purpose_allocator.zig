@@ -99,9 +99,9 @@ const math = std.math;
 const assert = std.debug.assert;
 const mem = std.mem;
 const Allocator = std.mem.Allocator;
-const page_size = std.mem.page_size;
-const page_size_cap = std.mem.page_size_cap;
-const pageSize = std.mem.pageSize;
+const page_size = std.heap.page_size;
+const page_size_cap = std.heap.page_size_cap;
+const pageSize = std.heap.pageSize;
 const StackTrace = std.builtin.StackTrace;
 
 /// Integer type for pointing to slots in a small allocation

@@ -367,8 +367,8 @@ pub fn sbrk(n: usize) usize {
         bloc = @intFromPtr(&ExecData.end);
         bloc_max = @intFromPtr(&ExecData.end);
     }
-    const bl = std.mem.alignForward(usize, bloc, std.mem.pageSize());
-    const n_aligned = std.mem.alignForward(usize, n, std.mem.pageSize());
+    const bl = std.mem.alignForward(usize, bloc, std.heap.pageSize());
+    const n_aligned = std.mem.alignForward(usize, n, std.heap.pageSize());
     if (bl + n_aligned > bloc_max) {
         // we need to allocate
         if (brk_(bl + n_aligned) < 0) return 0;

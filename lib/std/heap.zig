@@ -8,6 +8,90 @@ const c = std.c;
 const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
+/// A compile time known upper bound on page size.
+pub const page_size_cap: usize = switch(builtin.cpu.arch) {
+    .wasm32, .wasm64 => 64 * 1024,
+    .x86, .x86_64 => 4 * 1024,
+    .aarch64 => switch (builtin.os.tag) {
+        .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
+        else => 64 * 1024,
+    },
+    .sparc64 => 8 * 1024,
+    else => 4 * 1024,
+};
+
+/// Compile time known minimum page size.
+/// https://github.com/ziglang/zig/issues/4082
+pub const page_size: usize = switch (builtin.cpu.arch) {
+    .wasm32, .wasm64 => 64 * 1024,
+    .x86, .x86_64 => 4 * 1024,
+    .aarch64 => switch (builtin.os.tag) {
+        .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
+        else => 4 * 1024,
+    },
+    .sparc64 => 8 * 1024,
+    else => 4 * 1024,
+};
+
+var runtimePageSize = std.atomic.Value(usize).init(0);
+
+/// Runtime detected page size.
+pub fn pageSize() usize {
+    // "Windows CE for ARM920 took advantage of [1KB subpages] and used 1KB "pages". All other
+    // flavors of Windows use the native 4KB pages."
+    //
+    // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
+    if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp)) {
+        switch (builtin.cpu.arch) {
+            .x86, .x86_64 => return 4 << 10,
+            // SuperH => return 4 << 10,
+            .mips, .mipsel, .mips64, .mips64el => return 4 << 10,
+            .powerpc, .powerpcle, .powerpc64, .powerpc64le => return 4 << 10,
+            // DEC Alpha => return 8 << 10,
+            // Itanium => return 8 << 10,
+            .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => return 4 << 10,
+            else => {}
+        }
+    }
+    switch (builtin.cpu.arch) {
+        // "[...] each page is sized 64KiB."
+        //
+        // -- <https://developer.mozilla.org/en-US/docs/webassembly/reference/memory/size>
+        .wasm32, .wasm64 => return 64 << 10,
+        // "That selection is only valid for i386 hardware. If you run a
+        // 64-bit system [or any other architecture; sic], the page size is
+        // 4K and cannot be changed."
+        //
+        // -- <https://unix.stackexchange.com/a/80736>
+        .x86_64 => return 4 << 10,
+        else => {}
+    }
+    return queryPageSize();
+}
+
+// Runtime queried page size.
+fn queryPageSize() usize {
+    var size = runtimePageSize.load(.unordered);
+    if(size > 0) return size;
+    defer {
+        std.debug.assert(size > 0);
+        std.debug.assert(size >= page_size);
+        std.debug.assert(size <= page_size_cap);
+        runtimePageSize.store(size, .unordered);
+    }
+    switch (builtin.os.tag) {
+        .linux => size = if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
+        .macos => blk: { size = @import("../../src/link/MachO.zig").machTaskForSelf().getPageSize() catch break :blk };
+        .windows => {
+            var info: std.os.windows.SYSTEM_INFO = undefined;
+            std.os.windows.kernel32.GetSystemInfo(&info);
+            size = info.dwPageSize;
+        },
+        else => if (@hasDecl(std.c._SC, "PAGE_SIZE")) { size = std.c.sysconf(std.c._SC.PAGE_SIZE); } else {},
+    }
+    return size;
+}
+
 pub const LoggingAllocator = @import("heap/logging_allocator.zig").LoggingAllocator;
 pub const loggingAllocator = @import("heap/logging_allocator.zig").loggingAllocator;
 pub const ScopedLoggingAllocator = @import("heap/logging_allocator.zig").ScopedLoggingAllocator;
@@ -30,7 +114,7 @@ pub const MemoryPoolExtra = memory_pool.MemoryPoolExtra;
 pub const MemoryPoolOptions = memory_pool.Options;
 
 /// TODO Utilize this on Windows.
-pub var next_mmap_addr_hint: ?[*]align(mem.page_size) u8 = null;
+pub var next_mmap_addr_hint: ?[*]align(page_size) u8 = null;
 
 const CAllocator = struct {
     comptime {
@@ -258,7 +342,7 @@ pub const wasm_allocator = Allocator{
 /// Verifies that the adjusted length will still map to the full length
 pub fn alignPageAllocLen(full_len: usize, len: usize) usize {
     const aligned_len = mem.alignAllocLen(full_len, len);
-    assert(mem.alignForward(usize, aligned_len, mem.pageSize()) == full_len);
+    assert(mem.alignForward(usize, aligned_len, pageSize()) == full_len);
     return aligned_len;
 }
 
@@ -619,13 +703,13 @@ test "PageAllocator" {
     }
 
     if (builtin.os.tag == .windows) {
-        const slice = try allocator.alignedAlloc(u8, mem.page_size, 128);
+        const slice = try allocator.alignedAlloc(u8, page_size, 128);
         slice[0] = 0x12;
         slice[127] = 0x34;
         allocator.free(slice);
     }
     {
-        var buf = try allocator.alloc(u8, mem.pageSize() + 1);
+        var buf = try allocator.alloc(u8, pageSize() + 1);
         defer allocator.free(buf);
         buf = try allocator.realloc(buf, 1); // shrink past the page boundary
     }
@@ -828,7 +912,7 @@ pub fn testAllocatorLargeAlignment(base_allocator: mem.Allocator) !void {
     var validationAllocator = mem.validationWrap(base_allocator);
     const allocator = validationAllocator.allocator();
 
-    const large_align: usize = mem.page_size / 2;
+    const large_align: usize = page_size / 2;
 
     var align_mask: usize = undefined;
     align_mask = @shlWithOverflow(~@as(usize, 0), @as(Allocator.Log2Align, @ctz(large_align)))[0];
@@ -861,7 +945,7 @@ pub fn testAllocatorAlignedShrink(base_allocator: mem.Allocator) !void {
     var fib = FixedBufferAllocator.init(&debug_buffer);
     const debug_allocator = fib.allocator();
 
-    const alloc_size = mem.pageSize() * 2 + 50;
+    const alloc_size = pageSize() * 2 + 50;
     var slice = try allocator.alignedAlloc(u8, 16, alloc_size);
     defer allocator.free(slice);
 
@@ -870,7 +954,7 @@ pub fn testAllocatorAlignedShrink(base_allocator: mem.Allocator) !void {
     // which is 16 pages, hence the 32. This test may require to increase
     // the size of the allocations feeding the `allocator` parameter if they
     // fail, because of this high over-alignment we want to have.
-    while (@intFromPtr(slice.ptr) == mem.alignForward(usize, @intFromPtr(slice.ptr), mem.pageSize() * 32)) {
+    while (@intFromPtr(slice.ptr) == mem.alignForward(usize, @intFromPtr(slice.ptr), pageSize() * 32)) {
         try stuff_to_free.append(slice);
         slice = try allocator.alignedAlloc(u8, 16, alloc_size);
     }
