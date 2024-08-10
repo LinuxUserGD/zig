@@ -8,6 +8,19 @@ const testing = std.testing;
 const Endian = std.builtin.Endian;
 const native_endian = builtin.cpu.arch.endian();
 
+/// An compile time known upper bound on page size for this platform.
+pub const page_size_cap: usize = switch(builtin.cpu.arch) {
+    .wasm32, .wasm64 => 64 * 1024,
+    .x86, .x86_64 => 4 * 1024,
+    .aarch64 => switch (builtin.os.tag) {
+        // .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
+        // Temporarily set macos to the wrong page size for testing.
+        else => 64 * 1024,
+    },
+    .sparc64 => 8 * 1024,
+    else => 4 * 1024,
+};
+
 /// Compile time known minimum page size.
 /// https://github.com/ziglang/zig/issues/4082
 pub const page_size: usize = switch (builtin.cpu.arch) {
@@ -16,7 +29,6 @@ pub const page_size: usize = switch (builtin.cpu.arch) {
     .aarch64 => switch (builtin.os.tag) {
         // .macos, .ios, .watchos, .tvos, .visionos => 16 * 1024,
         // Temporarily set macos to the wrong page size for testing.
-        .macos, .ios, .watchos, .tvos, .visionos => 4 * 1024,
         else => 4 * 1024,
     },
     .sparc64 => 8 * 1024,
@@ -37,8 +49,9 @@ var runtimePageSize = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
 pub fn pageSize() usize {
-    var size = runtimePageSize.load(.monotonic);
-    if(size > 0) return size;
+    const cachedSize: usize = runtimePageSize.load(std.builtin.AtomicOrder.monotonic);
+    if(cachedSize > 0) return cachedSize;
+    var size: usize = 0;
     switch (builtin.os.tag) {
         .linux => {
             if (builtin.link_libc) {
