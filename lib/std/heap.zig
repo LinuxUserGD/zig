@@ -54,7 +54,7 @@ pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Source: Wikipedia "Page (computer memory)"
     .powerpc, .powerpc64, .powerpc64le, .powerpcle => 64 << 10,
     .riscv32, .riscv64 => 4 << 10,
-    .sparc, .sparcel => 256 << 10,
+    .sparc => 256 << 10,
     .sparc64 => 64 << 10,
     // Rare architectures with little support.
     else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
@@ -80,7 +80,7 @@ pub const page_size: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Source: Wikipedia "Page (computer memory)"
     .powerpc, .powerpc64, .powerpc64le, .powerpcle => 4 << 10,
     .riscv32, .riscv64 => 4 << 10,
-    .sparc, .sparcel => 4 << 10,
+    .sparc => 4 << 10,
     .sparc64 => 8 << 10,
     // Rare architectures with little support.
     else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
