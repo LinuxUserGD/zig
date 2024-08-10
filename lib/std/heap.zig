@@ -11,7 +11,7 @@ const windows = std.os.windows;
 const page_size_darwin: ?comptime_int = if (builtin.os.tag.isDarwin())
     switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
-        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 16 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
         else => null,
     }
 else
@@ -27,7 +27,7 @@ blk: {
         .powerpc, .powerpcle, .powerpc64, .powerpc64le => 4 << 10,
         // DEC Alpha => 8 << 10,
         // Itanium => 8 << 10,
-        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be, .aarch64_32 => 4 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         else => null,
     };
 } else null;
@@ -39,7 +39,7 @@ pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
-    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be => 64 << 10,
+    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 64 << 10,
     // Explicitly only 4kb.
     // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
     .s390x => 4 << 10,
@@ -65,7 +65,7 @@ pub const page_size: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
-    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_32, .aarch64_be => 4 << 10,
+    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
     // Explicitly only 4kb.
     // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
     .s390x => 4 << 10,
