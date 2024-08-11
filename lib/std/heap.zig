@@ -81,7 +81,7 @@ pub const page_size: usize = page_size_os orelse switch (builtin.cpu.arch) {
     else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
 };
 
-var runtimePageSize = std.atomic.Value(usize).init(0);
+var runtime_page_size = std.atomic.Value(usize).init(0);
 
 /// Runtime detected page size.
 pub inline fn pageSize() usize {
@@ -100,14 +100,14 @@ pub inline fn pageSize() usize {
 
 // Runtime queried page size.
 fn queryPageSize() usize {
-    var size = runtimePageSize.load(.unordered);
+    var size = runtime_page_size.load(.unordered);
     if (size > 0) return size;
     defer {
         if (size != 0) {
             std.debug.assert(size >= page_size);
             std.debug.assert(size <= page_size_cap);
         }
-        runtimePageSize.store(size, .unordered);
+        runtime_page_size.store(size, .unordered);
     }
     switch (builtin.os.tag) {
         .linux => size = if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
