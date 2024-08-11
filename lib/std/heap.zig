@@ -104,13 +104,6 @@ pub inline fn pageSize() usize {
 fn queryPageSize() usize {
     var size = runtime_page_size.load(.unordered);
     if (size > 0) return size;
-    defer {
-        if (size != 0) {
-            std.debug.assert(size >= page_size);
-            std.debug.assert(size <= page_size_cap);
-        }
-        runtime_page_size.store(size, .unordered);
-    }
     switch (builtin.os.tag) {
         .linux => size = if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .macos => blk: {
@@ -146,8 +139,15 @@ fn queryPageSize() usize {
         },
         else => if (builtin.link_libc and std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void) {
             size = std.c.sysconf(std.c._SC.PAGE_SIZE);
-        } else {},
+        },
     }
+
+    if (size != 0) {
+        std.debug.assert(size >= page_size);
+        std.debug.assert(size <= page_size_cap);
+    }
+    runtime_page_size.store(size, .unordered);
+
     return size;
 }
 
