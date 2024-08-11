@@ -107,7 +107,6 @@ fn queryPageSize() usize {
     size = switch (builtin.os.tag) {
         .linux => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .macos => blk: {
-            if (!builtin.link_libc) break :blk 0;
             const task_port = std.c.mach_task_self();
             // TODO: Either check the KernE enum, or prove that these operations cannot error.
             if (task_port != std.c.TASK_NULL) {
