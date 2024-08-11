@@ -104,10 +104,10 @@ pub inline fn pageSize() usize {
 fn queryPageSize() usize {
     var size = runtime_page_size.load(.unordered);
     if (size > 0) return size;
-    switch (builtin.os.tag) {
-        .linux => size = if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
+    size = switch (builtin.os.tag) {
+        .linux => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .macos => blk: {
-            if (!builtin.link_libc) break :blk;
+            if (!builtin.link_libc) break :blk 0;
             const task_port = std.c.mach_task_self();
             // TODO: Either check the KernE enum, or prove that these operations cannot error.
             if (task_port != std.c.TASK_NULL) {
@@ -119,28 +119,24 @@ fn queryPageSize() usize {
                     @as(std.c.task_info_t, @ptrCast(&vm_info)),
                     &info_count,
                 )) {
-                    0 => {
-                        size = @as(usize, @intCast(vm_info.page_size));
-                        break :blk;
-                    },
-                    else => {},
+                    0 => break :blk @as(usize, @intCast(vm_info.page_size)),
+                    else => break :blk 0,
                 }
             }
             var vm_page_size: std.c.vm_size_t = undefined;
             switch (std.c._host_page_size(std.c.mach_host_self(), &vm_page_size)) {
-                0 => size = vm_page_size,
-                else => {},
+                0 => break :blk vm_page_size,
+                else => break :blk 0,
             }
         },
-        .windows => {
+        .windows => blk: {
             var info: std.os.windows.SYSTEM_INFO = undefined;
             std.os.windows.kernel32.GetSystemInfo(&info);
-            size = info.dwPageSize;
+            break :blk info.dwPageSize;
         },
-        else => if (builtin.link_libc and std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void) {
-            size = std.c.sysconf(std.c._SC.PAGE_SIZE);
-        },
-    }
+        else => if (builtin.link_libc and std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void)
+            std.c.sysconf(std.c._SC.PAGE_SIZE) else 0
+    };
 
     if (size != 0) {
         std.debug.assert(size >= page_size);
