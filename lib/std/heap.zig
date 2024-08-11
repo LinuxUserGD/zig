@@ -134,7 +134,9 @@ fn queryPageSize() usize {
             break :blk info.dwPageSize;
         },
         else => if (builtin.link_libc and std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void)
-            std.c.sysconf(std.c._SC.PAGE_SIZE) else 0
+            std.c.sysconf(std.c._SC.PAGE_SIZE)
+        else
+            0,
     };
 
     if (size != 0) {
