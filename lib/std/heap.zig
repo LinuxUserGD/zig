@@ -89,8 +89,10 @@ pub inline fn pageSize() usize {
         @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead.");
     }
     if (page_size == page_size_cap) {
-        if (queryPageSize() != 0)
-            assert(queryPageSize() == page_size);
+        if (std.debug.runtime_safety) {
+            const size = queryPageSize();
+            assert(size == 0 or size == page_size);
+        }
         return page_size;
     }
     const size = queryPageSize();
