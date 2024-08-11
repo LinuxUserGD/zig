@@ -8,19 +8,15 @@ const c = std.c;
 const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
-const page_size_darwin: ?comptime_int = if (builtin.os.tag.isDarwin())
+const page_size_os: ?usize = if (builtin.os.tag.isDarwin())
     switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
         else => null,
     }
-else
-    null;
-
-// -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
-const page_size_windows: ?comptime_int = if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp))
-blk: {
-    break :blk switch (builtin.cpu.arch) {
+else if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp))
+    // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
+    switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         // SuperH => 4 << 10,
         .mips, .mipsel, .mips64, .mips64el => 4 << 10,
@@ -29,10 +25,9 @@ blk: {
         // Itanium => 8 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         else => null,
-    };
-} else null;
-
-const page_size_os: ?comptime_int = page_size_darwin orelse page_size_windows;
+    }
+else
+    null;
 
 /// A compile time known upper bound on page size.
 pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
