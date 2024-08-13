@@ -14,7 +14,7 @@ const page_size_os: ?usize = if (builtin.os.tag.isDarwin())
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
         else => null,
     }
-else if (builtin.os.tag == .windows and builtin.os.version_range.windows.min.isAtLeast(.xp))
+else if (builtin.os.tag == .windows)
     // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
     switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
