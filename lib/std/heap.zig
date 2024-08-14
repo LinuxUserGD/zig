@@ -108,25 +108,20 @@ fn queryPageSize() usize {
         .linux => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .ios, .macos, .watchos, .tvos, .visionos => blk: {
             const task_port = std.c.mach_task_self();
-            // TODO: Either check the KernE enum, or prove that these operations cannot error.
-            if (task_port != std.c.TASK_NULL) {
-                var info_count = std.c.TASK_VM_INFO_COUNT;
-                var vm_info: std.c.task_vm_info_data_t = undefined;
-                switch (std.c.task_info(
-                    task_port,
-                    std.c.TASK_VM_INFO,
-                    @as(std.c.task_info_t, @ptrCast(&vm_info)),
-                    &info_count,
-                )) {
-                    0 => break :blk @as(usize, @intCast(vm_info.page_size)),
-                    else => break :blk 0,
-                }
-            }
-            var vm_page_size: std.c.vm_size_t = undefined;
-            switch (std.c._host_page_size(std.c.mach_host_self(), &vm_page_size)) {
-                0 => break :blk vm_page_size,
-                else => break :blk 0,
-            }
+            // This may fail "if there are any resource failures or other errors".
+            if (task_port == std.c.TASK_NULL)
+                break :blk 0;
+            var info_count = std.c.TASK_VM_INFO_COUNT;
+            var vm_info: std.c.task_vm_info_data_t = undefined;
+            vm_info.page_size = 0;
+            _ = std.c.task_info(
+                task_port,
+                std.c.TASK_VM_INFO,
+                @as(std.c.task_info_t, @ptrCast(&vm_info)),
+                &info_count,
+            );
+            assert(vm_info.page_size != 0);
+            break :blk @as(usize, @intCast(vm_info.page_size));
         },
         .windows => blk: {
             var info: std.os.windows.SYSTEM_INFO = undefined;
