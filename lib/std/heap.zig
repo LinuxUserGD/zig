@@ -29,8 +29,8 @@ else if (builtin.os.tag == .windows)
 else
     null;
 
-/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_cap`. To allow larger page sizes, override `page_size_cap` as well as `-z max-page-size`.
-pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
+/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_max`. To allow larger page sizes, override `page_size_max` as well as `-z max-page-size`.
+pub const page_size_max: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
     .x86, .x86_64 => 4 << 10,
@@ -88,7 +88,7 @@ pub inline fn pageSize() usize {
     if (@inComptime()) {
         @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead.");
     }
-    if (page_size == page_size_cap) {
+    if (page_size == page_size_max) {
         if (std.debug.runtime_safety) {
             const size = queryPageSize();
             assert(size == 0 or size == page_size);
@@ -141,7 +141,7 @@ fn queryPageSize() usize {
 
     if (size != 0) {
         std.debug.assert(size >= page_size);
-        std.debug.assert(size <= page_size_cap);
+        std.debug.assert(size <= page_size_max);
     }
     runtime_page_size.store(size, .unordered);
 

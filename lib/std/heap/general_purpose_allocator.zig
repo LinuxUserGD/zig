@@ -100,12 +100,12 @@ const assert = std.debug.assert;
 const mem = std.mem;
 const Allocator = std.mem.Allocator;
 const page_size = std.heap.page_size;
-const page_size_cap = std.heap.page_size_cap;
+const page_size_max = std.heap.page_size_max;
 const pageSize = std.heap.pageSize;
 const StackTrace = std.builtin.StackTrace;
 
 /// Integer type for pointing to slots in a small allocation
-const SlotIndex = std.meta.Int(.unsigned, math.log2(page_size_cap) + 1);
+const SlotIndex = std.meta.Int(.unsigned, math.log2(page_size_max) + 1);
 
 const default_test_stack_trace_frames: usize = if (builtin.is_test) 10 else 6;
 const default_sys_stack_trace_frames: usize = if (std.debug.sys_can_stack_trace) default_test_stack_trace_frames else 0;
@@ -160,13 +160,13 @@ pub const Config = struct {
 pub const Check = enum { ok, leak };
 
 pub fn GeneralPurposeAllocator(comptime config: Config) type {
-    const small_bucket_count_cap = math.log2(page_size_cap);
-    const largest_bucket_object_size_cap = 1 << (small_bucket_count_cap - 1);
-    const LargestSizeClassInt = std.math.IntFittingRange(0, largest_bucket_object_size_cap);
+    const small_bucket_count_max = math.log2(page_size_max);
+    const largest_bucket_object_size_max = 1 << (small_bucket_count_max - 1);
+    const LargestSizeClassInt = std.math.IntFittingRange(0, largest_bucket_object_size_max);
     return struct {
         backing_allocator: Allocator = std.heap.page_allocator,
-        buckets: [small_bucket_count_cap]Buckets = [1]Buckets{Buckets{}} ** small_bucket_count_cap,
-        cur_buckets: [small_bucket_count_cap]?*BucketHeader = [1]?*BucketHeader{null} ** small_bucket_count_cap,
+        buckets: [small_bucket_count_max]Buckets = [1]Buckets{Buckets{}} ** small_bucket_count_max,
+        cur_buckets: [small_bucket_count_max]?*BucketHeader = [1]?*BucketHeader{null} ** small_bucket_count_max,
         large_allocations: LargeAllocTable = .{},
         empty_buckets: if (config.retain_metadata) Buckets else void =
             if (config.retain_metadata) Buckets{} else {},

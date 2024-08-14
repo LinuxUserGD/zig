@@ -669,7 +669,7 @@ test "PackedIntArray at end of available memory" {
     const PackedArray = PackedIntArray(u3, 8);
 
     const Padded = struct {
-        _: [std.heap.page_size_cap - @sizeOf(PackedArray)]u8,
+        _: [std.heap.page_size_max - @sizeOf(PackedArray)]u8,
         p: PackedArray,
     };
 

@@ -1074,10 +1074,10 @@ test printLineFromFileAnyOs {
         defer allocator.free(path);
 
         var writer = file.writer();
-        try writer.writeByteNTimes('a', heap.page_size_cap);
+        try writer.writeByteNTimes('a', heap.page_size_max);
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** heap.page_size_cap) ++ "\n", output.items);
+        try expectEqualStrings(("a" ** heap.page_size_max) ++ "\n", output.items);
         output.clearRetainingCapacity();
     }
     {
@@ -1087,18 +1087,18 @@ test printLineFromFileAnyOs {
         defer allocator.free(path);
 
         var writer = file.writer();
-        try writer.writeByteNTimes('a', 3 * heap.page_size_cap);
+        try writer.writeByteNTimes('a', 3 * heap.page_size_max);
 
         try expectError(error.EndOfFile, printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 2, .column = 0 }));
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** (3 * heap.page_size_cap)) ++ "\n", output.items);
+        try expectEqualStrings(("a" ** (3 * heap.page_size_max)) ++ "\n", output.items);
         output.clearRetainingCapacity();
 
         try writer.writeAll("a\na");
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** (3 * heap.page_size_cap)) ++ "a\n", output.items);
+        try expectEqualStrings(("a" ** (3 * heap.page_size_max)) ++ "a\n", output.items);
         output.clearRetainingCapacity();
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 2, .column = 0 });
