@@ -216,8 +216,7 @@ fn allocBytesWithAlignment(self: Allocator, comptime alignment: u29, byte_count:
     // the minimum OS page size. For these use cases, the caller must use OS
     // APIs directly.
 
-    // For some reason, this line fails with "unable to evaluate comptime expression".
-    // if(!(alignment <= heap.pageSize())) @panic("Alignment must be smaller than page size.");
+    if(!@inComptime() && alignment > heap.pageSize()) @panic("Alignment must be smaller than page size.");
 
     if (byte_count == 0) {
         const ptr = comptime std.mem.alignBackward(usize, math.maxInt(usize), alignment);
