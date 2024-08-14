@@ -96,7 +96,7 @@ pub inline fn pageSize() usize {
         return page_size;
     }
     const size = queryPageSize();
-    std.debug.assert(size > 0);
+    assert(size > 0);
     return size;
 }
 
@@ -135,8 +135,8 @@ fn queryPageSize() usize {
     };
 
     if (size != 0) {
-        std.debug.assert(size >= page_size);
-        std.debug.assert(size <= page_size_max);
+        assert(size >= page_size);
+        assert(size <= page_size_max);
     }
     runtime_page_size.store(size, .unordered);
 
