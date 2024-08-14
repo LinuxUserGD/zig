@@ -29,7 +29,7 @@ else if (builtin.os.tag == .windows)
 else
     null;
 
-/// A compile time known upper bound on page size.
+/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_cap`. To allow larger page sizes, override `page_size_cap` as well as `-z max-page-size`.
 pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
@@ -55,7 +55,7 @@ pub const page_size_cap: usize = page_size_os orelse switch (builtin.cpu.arch) {
     else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
 };
 
-/// Compile time known minimum page size.
+/// Compile time minimum page size that the architecture/OS combination supports. All page-aligned values are aligned to at least this value, but may have a much larger alignment.
 pub const page_size: usize = page_size_os orelse switch (builtin.cpu.arch) {
     // Common knowledge.
     .wasm32, .wasm64 => 64 << 10,
