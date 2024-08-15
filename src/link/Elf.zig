@@ -1146,7 +1146,7 @@ pub fn flushModule(self: *Elf, arena: Allocator, tid: Zcu.PerThread.Id, prog_nod
             system_libs.appendAssumeCapacity(.{
                 .path = try comp.get_libc_crt_file(arena, "libc_nonshared.a"),
             });
-        } else if (target.isMusl()) {
+        } else if (target.isMusl() or target.os.tag == .android) {
             const path = try comp.get_libc_crt_file(arena, switch (link_mode) {
                 .static => "libc.a",
                 .dynamic => "libc.so",
@@ -1593,7 +1593,7 @@ fn dumpArgv(self: *Elf, comp: *Compilation) !void {
                     try argv.append(lib_path);
                 }
                 try argv.append(try comp.get_libc_crt_file(arena, "libc_nonshared.a"));
-            } else if (target.isMusl()) {
+            } else if (target.isMusl() or target.os.tag == .android) {
                 try argv.append(try comp.get_libc_crt_file(arena, switch (link_mode) {
                     .static => "libc.a",
                     .dynamic => "libc.so",
@@ -2597,7 +2597,7 @@ fn linkWithLLD(self: *Elf, arena: Allocator, tid: Zcu.PerThread.Id, prog_node: s
                         try argv.append(lib_path);
                     }
                     try argv.append(try comp.get_libc_crt_file(arena, "libc_nonshared.a"));
-                } else if (target.isMusl()) {
+                } else if (target.isMusl() or target.os.tag == .android) {
                     try argv.append(try comp.get_libc_crt_file(arena, switch (link_mode) {
                         .static => "libc.a",
                         .dynamic => "libc.so",

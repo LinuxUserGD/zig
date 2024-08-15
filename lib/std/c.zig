@@ -52,7 +52,7 @@ comptime {
 pub inline fn versionCheck(comptime glibc_version: std.SemanticVersion) bool {
     return comptime blk: {
         if (!builtin.link_libc) break :blk false;
-        if (native_abi.isMusl()) break :blk true;
+        if (native_abi.isMusl() or native_os == .android) break :blk true;
         if (builtin.target.isGnuLibC()) {
             const ver = builtin.os.version_range.linux.glibc;
             const order = ver.order(glibc_version);

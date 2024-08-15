@@ -577,6 +577,7 @@ pub const Os = struct {
             .aix,
             .netbsd,
             .driverkit,
+            .android,
             .macos,
             .ios,
             .tvos,
@@ -591,7 +592,6 @@ pub const Os = struct {
             => true,
 
             .linux,
-            .android,
             .windows,
             .freestanding,
             .fuchsia,
@@ -722,7 +722,6 @@ pub const Abi = enum {
             => .gnu,
             .uefi => .msvc,
             .linux,
-            .android,
             .wasi,
             .emscripten,
             => .musl,
@@ -730,6 +729,7 @@ pub const Abi = enum {
             .opengl,
             .vulkan,
             .plan9, // TODO specify abi
+            .android,
             .macos,
             .ios,
             .tvos,
@@ -756,6 +756,13 @@ pub const Abi = enum {
             .gnux32,
             .gnuilp32,
             => true,
+            else => false,
+        };
+    }
+
+    pub inline fn isBionic(abi: Abi) bool {
+        return switch (abi) {
+            .android => true,
             else => false,
         };
     }
@@ -1618,7 +1625,7 @@ pub inline fn isMusl(target: Target) bool {
 }
 
 pub inline fn isAndroid(target: Target) bool {
-    return target.abi == .android;
+    return target.os.tag == .android or target.abi.isBionic();
 }
 
 pub inline fn isWasm(target: Target) bool {
@@ -1725,7 +1732,7 @@ pub const DynamicLinker = struct {
     }
 
     pub fn standard(cpu: Cpu, os_tag: Os.Tag, abi: Abi) DynamicLinker {
-        return if (abi == .android) initFmt("/system/bin/linker{s}", .{
+        return if (os_tag == .android or abi == .android) initFmt("/system/bin/linker{s}", .{
             if (ptrBitWidth_cpu_abi(cpu, abi) == 64) "64" else "",
         }) catch unreachable else if (abi.isMusl()) return initFmt("/lib/ld-musl-{s}{s}.so.1", .{
             @tagName(switch (cpu.arch) {
@@ -2626,7 +2633,7 @@ pub fn is_libc_lib_name(target: std.Target, name: []const u8) bool {
         return false;
     }
 
-    if (target.abi.isGnu() or target.abi.isMusl()) {
+    if (target.abi.isGnu() or target.abi.isMusl() or target.os.tag == .android) {
         if (eqlIgnoreCase(ignore_case, name, "m"))
             return true;
         if (eqlIgnoreCase(ignore_case, name, "rt"))
@@ -2643,7 +2650,7 @@ pub fn is_libc_lib_name(target: std.Target, name: []const u8) bool {
             return true;
     }
 
-    if (target.abi.isMusl()) {
+    if (target.abi.isMusl() or target.os.tag == .android) {
         if (eqlIgnoreCase(ignore_case, name, "crypt"))
             return true;
     }

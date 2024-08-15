@@ -395,7 +395,7 @@ fn fchmodat2(dirfd: fd_t, path: []const u8, mode: mode_t, flags: u32) FChmodAtEr
         var has_fchmodat2: bool = true;
     };
     const path_c = try toPosixPath(path);
-    const use_fchmodat2 = (builtin.os.isAtLeast(.linux, .{ .major = 6, .minor = 6, .patch = 0 }) orelse false) and
+    const use_fchmodat2 = native_os != .android and (builtin.os.isAtLeast(.linux, .{ .major = 6, .minor = 6, .patch = 0 }) orelse false) and
         @atomicLoad(bool, &global.has_fchmodat2, .monotonic);
     while (use_fchmodat2) {
         // Later on this should be changed to `system.fchmodat2`
@@ -537,7 +537,7 @@ pub const RebootError = error{
 } || UnexpectedError;
 
 pub const RebootCommand = switch (native_os) {
-    .linux => union(linux.LINUX_REBOOT.CMD) {
+    .linux, .android => union(linux.LINUX_REBOOT.CMD) {
         RESTART: void,
         HALT: void,
         CAD_ON: void,
@@ -552,7 +552,7 @@ pub const RebootCommand = switch (native_os) {
 
 pub fn reboot(cmd: RebootCommand) RebootError!void {
     switch (native_os) {
-        .linux => {
+        .linux, .android => {
             switch (linux.E.init(linux.reboot(
                 .MAGIC1,
                 .MAGIC2,
@@ -760,7 +760,7 @@ pub fn exit(status: u8) noreturn {
     if (native_os == .wasi) {
         wasi.proc_exit(status);
     }
-    if (native_os == .linux and !builtin.single_threaded) {
+    if (native_os == .linux or native_os == .android and !builtin.single_threaded) {
         linux.exit_group(status);
     }
     if (native_os == .uefi) {
@@ -843,7 +843,7 @@ pub fn read(fd: fd_t, buf: []u8) ReadError!usize {
 
     // Prevents EINVAL.
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -983,7 +983,7 @@ pub fn pread(fd: fd_t, buf: []u8, offset: u64) PReadError!usize {
 
     // Prevent EINVAL.
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -1232,7 +1232,7 @@ pub fn write(fd: fd_t, bytes: []const u8) WriteError!usize {
     }
 
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -1391,7 +1391,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
 
     // Prevent EINVAL.
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -4547,7 +4547,7 @@ pub const FanotifyInitError = error{
 } || UnexpectedError;
 
 pub fn fanotify_init(flags: std.os.linux.fanotify.InitFlags, event_f_flags: u32) FanotifyInitError!i32 {
-    const rc = system.fanotify_init(flags, event_f_flags);
+    const rc = linux.fanotify_init(flags, event_f_flags);
     switch (errno(rc)) {
         .SUCCESS => return @intCast(rc),
         .INVAL => unreachable,
@@ -6181,13 +6181,13 @@ pub fn sendfile(
     // Prevents EOVERFLOW.
     const size_t = std.meta.Int(.unsigned, @typeInfo(usize).Int.bits - 1);
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(size_t),
     };
 
     switch (native_os) {
-        .linux => sf: {
+        .linux, .android => sf: {
             if (headers.len != 0) {
                 const amt = try writev(out_fd, headers);
                 total_written += amt;
@@ -6767,9 +6767,9 @@ pub const MemFdCreateError = error{
 
 pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
     switch (native_os) {
-        .linux => {
+        .linux, .android => {
             // memfd_create is available only in glibc versions starting with 2.27.
-            const use_c = std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
+            const use_c = native_os == .android or std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
             const sys = if (use_c) std.c else linux;
             const rc = sys.memfd_create(name, flags);
             switch (errno(rc)) {
@@ -7178,7 +7178,7 @@ pub fn perf_event_open(
     group_fd: fd_t,
     flags: usize,
 ) PerfEventOpenError!fd_t {
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         // There is no syscall wrapper for this function exposed by libcs
         const rc = linux.perf_event_open(attr, pid, cpu, group_fd, flags);
         switch (errno(rc)) {

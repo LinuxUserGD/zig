@@ -950,7 +950,7 @@ fn detectAbiAndDynamicLinker(
         query.abi != null and (!is_linux or query.abi.?.isGnu());
     const os_is_non_native = query.os_tag != null;
     // The Solaris/illumos environment is always the same.
-    if (!native_target_has_ld or have_all_info or os_is_non_native or is_solarish) {
+    if (builtin.target.os.tag == .android or !native_target_has_ld or have_all_info or os_is_non_native or is_solarish) {
         return defaultAbiAndDynamicLinker(cpu, os, query);
     }
     if (query.abi) |abi| {
