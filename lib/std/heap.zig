@@ -148,10 +148,13 @@ fn queryPageSize() usize {
             std.os.windows.kernel32.GetSystemInfo(&info);
             break :blk info.dwPageSize;
         },
-        else => if (builtin.link_libc and std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void)
-            std.c.sysconf(std.c._SC.PAGE_SIZE)
+        else => if (builtin.link_libc)
+            if (std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void)
+                std.c.sysconf(std.c._SC.PAGE_SIZE)
+            else
+                page_size_query_without_PAGESIZE_unsupported
         else
-            0,
+            page_size_query_without_libc_unsupported,
     };
 
     if (size != 0) {
