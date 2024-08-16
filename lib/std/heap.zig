@@ -8,12 +8,15 @@ const c = std.c;
 const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
+const page_size_os_arch_unsupported = @compileError("page size is not yet supported for this architecture/OS");
+const page_size_os_unsupported = @compileError("page size is not yet supported for this OS");
+
 /// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_max`. To allow larger page sizes, override `page_size_max` as well as `-z max-page-size`.
 pub const page_size_max: usize = switch (builtin.os.tag) {
     .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
-        else => null,
+        else => page_size_os_arch_unsupported,
     },
     // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
     .windows => switch (builtin.cpu.arch) {
@@ -24,11 +27,10 @@ pub const page_size_max: usize = switch (builtin.os.tag) {
         // DEC Alpha => 8 << 10,
         // Itanium => 8 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
-        else => null,
+        else => page_size_os_arch_unsupported,
     },
     // TODO: freestanding, uefi, freebsd, netbsd, dragonfly, openbsd
     .linux => switch (builtin.cpu.arch) {
-        // Common knowledge.
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 64 << 10,
         // Explicitly only 4kb.
@@ -47,10 +49,9 @@ pub const page_size_max: usize = switch (builtin.os.tag) {
         .riscv32, .riscv64 => 4 << 10,
         .sparc => 256 << 10,
         .sparc64 => 64 << 10,
-        // Rare architectures with little support.
-        else => null,
+        else => page_size_os_arch_unsupported,
     },
-    else => null,
+    else => page_size_os_unsupported,
 };
 
 /// Compile time minimum page size that the architecture/OS combination supports. All page-aligned values are aligned to at least this value, but may have a much larger alignment.
@@ -58,7 +59,7 @@ pub const page_size: usize = switch (builtin.os.tag) {
     .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
-        else => null,
+        else => page_size_os_arch_unsupported,
     },
     // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
     .windows => switch (builtin.cpu.arch) {
@@ -69,11 +70,9 @@ pub const page_size: usize = switch (builtin.os.tag) {
         // DEC Alpha => 8 << 10,
         // Itanium => 8 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
-        else => null,
+        else => page_size_os_arch_unsupported,
     },
     .linux => switch (builtin.cpu.arch) {
-        // Common knowledge.
-        .wasm32, .wasm64 => 64 << 10,
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         // Explicitly only 4kb.
@@ -92,10 +91,9 @@ pub const page_size: usize = switch (builtin.os.tag) {
         .riscv32, .riscv64 => 4 << 10,
         .sparc => 4 << 10,
         .sparc64 => 8 << 10,
-        // Rare architectures with little support.
-        else => null,
+        else => page_size_os_arch_unsupported,
     },
-    else => null,
+    else => page_size_os_unsupported,
 };
 
 var runtime_page_size = std.atomic.Value(usize).init(0);
