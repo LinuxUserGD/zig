@@ -8,15 +8,15 @@ const c = std.c;
 const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
-const page_size_os: ?usize = if (builtin.os.tag.isDarwin())
-    switch (builtin.cpu.arch) {
+/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_max`. To allow larger page sizes, override `page_size_max` as well as `-z max-page-size`.
+pub const page_size_max: usize = switch (builtin.os.tag) {
+    .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
         else => null,
-    }
-else if (builtin.os.tag == .windows)
+    },
     // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
-    switch (builtin.cpu.arch) {
+    .windows => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         // SuperH => 4 << 10,
         .mips, .mipsel, .mips64, .mips64el => 4 << 10,
@@ -25,60 +25,77 @@ else if (builtin.os.tag == .windows)
         // Itanium => 8 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         else => null,
-    }
-else
-    null;
-
-/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_max`. To allow larger page sizes, override `page_size_max` as well as `-z max-page-size`.
-pub const page_size_max: usize = page_size_os orelse switch (builtin.cpu.arch) {
-    // Common knowledge.
-    .wasm32, .wasm64 => 64 << 10,
-    .x86, .x86_64 => 4 << 10,
-    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 64 << 10,
-    // Explicitly only 4kb.
-    // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
-    .s390x => 4 << 10,
-    // Source: Linux mips/Kconfig.
-    .mips, .mipsel, .mips64, .mips64el, .loongarch32, .loongarch64 => 64 << 10,
-    // Source: csky/Kconfig only selects HAVE_PAGE_SIZE_4KB.
-    .csky => 4 << 10,
-    // Source: Hexagon's page.h in Linux accepts CONFIG_PAGE_SIZE_1MB.
-    .hexagon => 1024 << 10,
-    // Source: Zig's own libc page.h for arc.
-    .arc => 16 << 10,
-    // Source: Wikipedia "Page (computer memory)"
-    .powerpc, .powerpc64, .powerpc64le, .powerpcle => 64 << 10,
-    .riscv32, .riscv64 => 4 << 10,
-    .sparc => 256 << 10,
-    .sparc64 => 64 << 10,
-    // Rare architectures with little support.
-    else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
+    },
+    // TODO: freestanding, uefi, freebsd, netbsd, dragonfly, openbsd
+    .linux => switch (builtin.cpu.arch) {
+        // Common knowledge.
+        .x86, .x86_64 => 4 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 64 << 10,
+        // Explicitly only 4kb.
+        // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
+        .s390x => 4 << 10,
+        // Source: Linux mips/Kconfig.
+        .mips, .mipsel, .mips64, .mips64el, .loongarch32, .loongarch64 => 64 << 10,
+        // Source: csky/Kconfig only selects HAVE_PAGE_SIZE_4KB.
+        .csky => 4 << 10,
+        // Source: Hexagon's page.h in Linux accepts CONFIG_PAGE_SIZE_1MB.
+        .hexagon => 1024 << 10,
+        // Source: Zig's own libc page.h for arc.
+        .arc => 16 << 10,
+        // Source: Wikipedia "Page (computer memory)"
+        .powerpc, .powerpc64, .powerpc64le, .powerpcle => 64 << 10,
+        .riscv32, .riscv64 => 4 << 10,
+        .sparc => 256 << 10,
+        .sparc64 => 64 << 10,
+        // Rare architectures with little support.
+        else => null,
+    },
+    else => null,
 };
 
 /// Compile time minimum page size that the architecture/OS combination supports. All page-aligned values are aligned to at least this value, but may have a much larger alignment.
-pub const page_size: usize = page_size_os orelse switch (builtin.cpu.arch) {
-    // Common knowledge.
-    .wasm32, .wasm64 => 64 << 10,
-    .x86, .x86_64 => 4 << 10,
-    .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
-    // Explicitly only 4kb.
-    // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
-    .s390x => 4 << 10,
-    // Source: Wikipedia "MIPS" and Linux mips/Kconfig.
-    .mips, .mipsel, .mips64, .mips64el, .loongarch32, .loongarch64 => 4 << 10,
-    // Source: csky/Kconfig only selects HAVE_PAGE_SIZE_4KB.
-    .csky => 4 << 10,
-    // Hexagon's Kconfig/page.h in Linux. Non-huge pages go past 256KB.
-    .hexagon => 4 << 10,
-    // Source: Zig's own libc page.h for arc.
-    .arc => 4 << 10,
-    // Source: Wikipedia "Page (computer memory)"
-    .powerpc, .powerpc64, .powerpc64le, .powerpcle => 4 << 10,
-    .riscv32, .riscv64 => 4 << 10,
-    .sparc => 4 << 10,
-    .sparc64 => 8 << 10,
-    // Rare architectures with little support.
-    else => @compileError("Does pageSize() apply to this architecture? If so, file an issue."),
+pub const page_size: usize = switch (builtin.os.tag) {
+    .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
+        .x86, .x86_64 => 4 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
+        else => null,
+    },
+    // -- <https://devblogs.microsoft.com/oldnewthing/20210510-00/?p=105200>
+    .windows => switch (builtin.cpu.arch) {
+        .x86, .x86_64 => 4 << 10,
+        // SuperH => 4 << 10,
+        .mips, .mipsel, .mips64, .mips64el => 4 << 10,
+        .powerpc, .powerpcle, .powerpc64, .powerpc64le => 4 << 10,
+        // DEC Alpha => 8 << 10,
+        // Itanium => 8 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
+        else => null,
+    },
+    .linux => switch (builtin.cpu.arch) {
+        // Common knowledge.
+        .wasm32, .wasm64 => 64 << 10,
+        .x86, .x86_64 => 4 << 10,
+        .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
+        // Explicitly only 4kb.
+        // https://refspecs.linuxbase.org/ELF/zSeries/lzsabi0_zSeries.html#AEN798
+        .s390x => 4 << 10,
+        // Source: Wikipedia "MIPS" and Linux mips/Kconfig.
+        .mips, .mipsel, .mips64, .mips64el, .loongarch32, .loongarch64 => 4 << 10,
+        // Source: csky/Kconfig only selects HAVE_PAGE_SIZE_4KB.
+        .csky => 4 << 10,
+        // Hexagon's Kconfig/page.h in Linux. Non-huge pages go past 256KB.
+        .hexagon => 4 << 10,
+        // Source: Zig's own libc page.h for arc.
+        .arc => 4 << 10,
+        // Source: Wikipedia "Page (computer memory)"
+        .powerpc, .powerpc64, .powerpc64le, .powerpcle => 4 << 10,
+        .riscv32, .riscv64 => 4 << 10,
+        .sparc => 4 << 10,
+        .sparc64 => 8 << 10,
+        // Rare architectures with little support.
+        else => null,
+    },
+    else => null,
 };
 
 var runtime_page_size = std.atomic.Value(usize).init(0);
