@@ -57,7 +57,7 @@ pub const max_page_size: usize = switch (builtin.os.tag) {
     else => page_size_os_unsupported,
 };
 
-/// Compile time minimum page size that the architecture/OS combination supports. All page-aligned values are aligned to at least this value, but may have a much larger alignment.
+/// Compile time minimum page size that the architecture/OS combination supports. Pointers aligned to the system's page size are aligned to at least `min_page_size`, but system calls such as `mmap` and `VirtualAlloc` may return pointers with much larger alignments.
 pub const min_page_size: usize = switch (builtin.os.tag) {
     .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
