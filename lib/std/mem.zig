@@ -1042,7 +1042,7 @@ pub fn indexOfSentinel(comptime T: type, comptime sentinel: T, p: [*:sentinel]co
                 const Block = @Vector(block_len, T);
                 const mask: Block = @splat(sentinel);
 
-                comptime std.debug.assert(std.heap.page_size_max % @sizeOf(Block) == 0);
+                comptime std.debug.assert(std.heap.max_page_size % @sizeOf(Block) == 0);
                 std.debug.assert(std.heap.pageSize() % @sizeOf(Block) == 0);
 
                 // First block may be unaligned

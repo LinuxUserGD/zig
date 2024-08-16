@@ -14,8 +14,8 @@ const page_size_query_without_libc_unsupported = @compileError("querying page si
 const page_size_query_without_PAGESIZE_unsupported = @compileError("The Zig standard library is missing _SC_PAGESIZE to query page size for the target architecture/OS");
 const page_size_query_unsupported = @compileError("The Zig standard library is missing support for querying page size on this OS");
 
-/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_max`. To allow larger page sizes, override `page_size_max` as well as `-z max-page-size`.
-pub const page_size_max: usize = switch (builtin.os.tag) {
+/// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `max_page_size`. To allow larger page sizes, override `max_page_size` as well as `-z max-page-size`.
+pub const max_page_size: usize = switch (builtin.os.tag) {
     .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
@@ -106,7 +106,7 @@ pub inline fn pageSize() usize {
     if (@inComptime()) {
         @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead.");
     }
-    if (min_page_size == page_size_max) {
+    if (min_page_size == max_page_size) {
         if (std.debug.runtime_safety) {
             const size = queryPageSize();
             assert(size == min_page_size);
@@ -156,7 +156,7 @@ fn queryPageSize() usize {
     };
 
     assert(size >= min_page_size);
-    assert(size <= page_size_max);
+    assert(size <= max_page_size);
     runtime_page_size.store(size, .unordered);
 
     return size;

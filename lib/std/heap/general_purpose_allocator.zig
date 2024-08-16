@@ -100,12 +100,12 @@ const assert = std.debug.assert;
 const mem = std.mem;
 const Allocator = std.mem.Allocator;
 const min_page_size = std.heap.min_page_size;
-const page_size_max = std.heap.page_size_max;
+const max_page_size = std.heap.max_page_size;
 const pageSize = std.heap.pageSize;
 const StackTrace = std.builtin.StackTrace;
 
 /// Integer type for pointing to slots in a small allocation
-const SlotIndex = std.meta.Int(.unsigned, math.log2(page_size_max) + 1);
+const SlotIndex = std.meta.Int(.unsigned, math.log2(max_page_size) + 1);
 
 const default_test_stack_trace_frames: usize = if (builtin.is_test) 10 else 6;
 const default_sys_stack_trace_frames: usize = if (std.debug.sys_can_stack_trace) default_test_stack_trace_frames else 0;
@@ -160,7 +160,7 @@ pub const Config = struct {
 pub const Check = enum { ok, leak };
 
 pub fn GeneralPurposeAllocator(comptime config: Config) type {
-    const small_bucket_count_max = math.log2(page_size_max);
+    const small_bucket_count_max = math.log2(max_page_size);
     const largest_bucket_object_size_max = 1 << (small_bucket_count_max - 1);
     const LargestSizeClassInt = std.math.IntFittingRange(0, largest_bucket_object_size_max);
     return struct {
