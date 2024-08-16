@@ -10,8 +10,6 @@ const windows = std.os.windows;
 
 const page_size_os_arch_unsupported = @compileError("The Zig standard library is missing page_size definitions for the target architecture/OS");
 const page_size_os_unsupported = @compileError("The Zig standard library is missing page_size definitions for the target OS");
-const page_size_query_without_libc_unsupported = @compileError("querying page size on this platform is not supported without linking libc");
-const page_size_query_without_PAGESIZE_unsupported = @compileError("The Zig standard library is missing _SC_PAGESIZE to query page size for the target architecture/OS");
 const page_size_query_unsupported = @compileError("The Zig standard library is missing support for querying page size on this OS");
 
 /// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `max_page_size`. To allow larger page sizes, override `max_page_size` as well as `-z max-page-size`.
@@ -124,7 +122,7 @@ fn queryPageSize() usize {
         .linux => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .driverkit, .ios, .macos, .tvos, .visionos, .watchos => blk: {
             if (!builtin.link_libc)
-                break :blk page_size_query_without_libc_unsupported;
+                @compileError("querying page size on this platform is not supported without linking libc");
             const task_port = std.c.mach_task_self();
             // This may fail "if there are any resource failures or other errors".
             if (task_port == std.c.TASK_NULL)
@@ -147,12 +145,12 @@ fn queryPageSize() usize {
             break :blk info.dwPageSize;
         },
         else => if (builtin.link_libc)
-            if (std.c._SC != void and std.c._SC.PAGE_SIZE != void and @TypeOf(std.c.sysconf) != void)
-                std.c.sysconf(std.c._SC.PAGE_SIZE)
+            if (std.c._SC != void and std.c._SC.PAGESIZE != void)
+                std.c.sysconf(std.c._SC.PAGESIZE)
             else
-                page_size_query_without_PAGESIZE_unsupported
+                @compileError("missing _SC.PAGESIZE declaration")
         else
-            page_size_query_without_libc_unsupported,
+            @compileError("querying page size on this platform is not supported without linking libc"),
     };
 
     assert(size >= min_page_size);
