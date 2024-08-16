@@ -43,7 +43,7 @@ var install_atfork_handler = std.once(struct {
     }
 }.do);
 
-threadlocal var wipe_mem: []align(heap.page_size) u8 = &[_]u8{};
+threadlocal var wipe_mem: []align(heap.min_page_size) u8 = &[_]u8{};
 
 fn tlsCsprngFill(_: *anyopaque, buffer: []u8) void {
     if (os_has_arc4random) {
@@ -78,7 +78,7 @@ fn tlsCsprngFill(_: *anyopaque, buffer: []u8) void {
         } else {
             // Use a static thread-local buffer.
             const S = struct {
-                threadlocal var buf: Context align(heap.page_size) = .{
+                threadlocal var buf: Context align(heap.min_page_size) = .{
                     .init_state = .uninitialized,
                     .rng = undefined,
                 };

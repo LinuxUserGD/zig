@@ -99,7 +99,7 @@ const math = std.math;
 const assert = std.debug.assert;
 const mem = std.mem;
 const Allocator = std.mem.Allocator;
-const page_size = std.heap.page_size;
+const min_page_size = std.heap.min_page_size;
 const page_size_max = std.heap.page_size_max;
 const pageSize = std.heap.pageSize;
 const StackTrace = std.builtin.StackTrace;
@@ -272,7 +272,7 @@ pub fn GeneralPurposeAllocator(comptime config: Config) type {
         // * stack_trace_addresses: [N]usize, // traces_per_slot for every allocation
 
         const BucketHeader = struct {
-            page: [*]align(page_size) u8,
+            page: [*]align(min_page_size) u8,
             alloc_cursor: SlotIndex,
             used_count: SlotIndex,
 
@@ -576,7 +576,7 @@ pub fn GeneralPurposeAllocator(comptime config: Config) type {
             addr: usize,
             current_bucket: ?*BucketHeader,
         ) ?*BucketHeader {
-            const search_page: [*]align(page_size) u8 = @ptrFromInt(mem.alignBackward(usize, addr, pageSize()));
+            const search_page: [*]align(min_page_size) u8 = @ptrFromInt(mem.alignBackward(usize, addr, pageSize()));
             if (current_bucket != null and current_bucket.?.page == search_page) {
                 return current_bucket;
             }
@@ -1047,7 +1047,7 @@ pub fn GeneralPurposeAllocator(comptime config: Config) type {
         }
 
         fn createBucket(self: *Self, size_class: usize) Error!*BucketHeader {
-            const page = try self.backing_allocator.alignedAlloc(u8, page_size, pageSize());
+            const page = try self.backing_allocator.alignedAlloc(u8, min_page_size, pageSize());
             errdefer self.backing_allocator.free(page);
 
             const bucket_size = bucketSize(size_class);

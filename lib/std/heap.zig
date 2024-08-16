@@ -58,7 +58,7 @@ pub const page_size_max: usize = switch (builtin.os.tag) {
 };
 
 /// Compile time minimum page size that the architecture/OS combination supports. All page-aligned values are aligned to at least this value, but may have a much larger alignment.
-pub const page_size: usize = switch (builtin.os.tag) {
+pub const min_page_size: usize = switch (builtin.os.tag) {
     .driverkit, .ios, .macos, .tvos, .visionos, .watchos => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 16 << 10,
@@ -106,12 +106,12 @@ pub inline fn pageSize() usize {
     if (@inComptime()) {
         @compileError("pageSize() must NOT be used in comptime. Use page_size variants instead.");
     }
-    if (page_size == page_size_max) {
+    if (min_page_size == page_size_max) {
         if (std.debug.runtime_safety) {
             const size = queryPageSize();
-            assert(size == page_size);
+            assert(size == min_page_size);
         }
-        return page_size;
+        return min_page_size;
     }
     return queryPageSize();
 }
@@ -155,7 +155,7 @@ fn queryPageSize() usize {
             page_size_query_without_libc_unsupported,
     };
 
-    assert(size >= page_size);
+    assert(size >= min_page_size);
     assert(size <= page_size_max);
     runtime_page_size.store(size, .unordered);
 
@@ -184,7 +184,7 @@ pub const MemoryPoolExtra = memory_pool.MemoryPoolExtra;
 pub const MemoryPoolOptions = memory_pool.Options;
 
 /// TODO Utilize this on Windows.
-pub var next_mmap_addr_hint: ?[*]align(page_size) u8 = null;
+pub var next_mmap_addr_hint: ?[*]align(min_page_size) u8 = null;
 
 const CAllocator = struct {
     comptime {
@@ -773,7 +773,7 @@ test "PageAllocator" {
     }
 
     if (builtin.os.tag == .windows) {
-        const slice = try allocator.alignedAlloc(u8, page_size, 128);
+        const slice = try allocator.alignedAlloc(u8, min_page_size, 128);
         slice[0] = 0x12;
         slice[127] = 0x34;
         allocator.free(slice);
@@ -982,7 +982,7 @@ pub fn testAllocatorLargeAlignment(base_allocator: mem.Allocator) !void {
     var validationAllocator = mem.validationWrap(base_allocator);
     const allocator = validationAllocator.allocator();
 
-    const large_align: usize = page_size / 2;
+    const large_align: usize = min_page_size / 2;
 
     var align_mask: usize = undefined;
     align_mask = @shlWithOverflow(~@as(usize, 0), @as(Allocator.Log2Align, @ctz(large_align)))[0];

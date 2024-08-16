@@ -144,7 +144,7 @@ pub const ElfDynLib = struct {
     hashtab: [*]posix.Elf_Symndx,
     versym: ?[*]u16,
     verdef: ?*elf.Verdef,
-    memory: []align(heap.page_size) u8,
+    memory: []align(heap.min_page_size) u8,
 
     pub const Error = ElfDynLibError;
 
@@ -224,7 +224,7 @@ pub const ElfDynLib = struct {
                         const aligned_addr = (base + ph.p_vaddr) & ~(@as(usize, heap.pageSize()) - 1);
                         const extra_bytes = (base + ph.p_vaddr) - aligned_addr;
                         const extended_memsz = mem.alignForward(usize, ph.p_memsz + extra_bytes, heap.pageSize());
-                        const ptr = @as([*]align(heap.page_size) u8, @ptrFromInt(aligned_addr));
+                        const ptr = @as([*]align(heap.min_page_size) u8, @ptrFromInt(aligned_addr));
                         const prot = elfToMmapProt(ph.p_flags);
                         if ((ph.p_flags & elf.PF_W) == 0) {
                             // If it does not need write access, it can be mapped from the fd.

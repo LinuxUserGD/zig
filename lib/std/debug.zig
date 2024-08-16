@@ -956,7 +956,7 @@ fn printLineFromFileAnyOs(out_stream: anytype, source_location: SourceLocation) 
     defer f.close();
     // TODO fstat and make sure that the file has the correct size
 
-    var buf: [heap.page_size]u8 align(heap.page_size) = undefined;
+    var buf: [heap.min_page_size]u8 align(heap.min_page_size) = undefined;
     var amt_read = try f.read(buf[0..]);
     const line_start = seek: {
         var current_line_start: usize = 0;

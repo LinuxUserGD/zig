@@ -46,7 +46,7 @@ fn alloc(_: *anyopaque, n: usize, log2_align: u8, ra: usize) ?[*]u8 {
         0,
     ) catch return null;
     assert(mem.isAligned(@intFromPtr(slice.ptr), heap.pageSize()));
-    const new_hint: [*]align(heap.page_size) u8 = @alignCast(slice.ptr + aligned_len);
+    const new_hint: [*]align(heap.min_page_size) u8 = @alignCast(slice.ptr + aligned_len);
     _ = @cmpxchgStrong(@TypeOf(std.heap.next_mmap_addr_hint), &std.heap.next_mmap_addr_hint, hint, new_hint, .monotonic, .monotonic);
     return slice.ptr;
 }
