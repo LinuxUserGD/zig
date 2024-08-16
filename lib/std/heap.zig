@@ -8,8 +8,11 @@ const c = std.c;
 const Allocator = std.mem.Allocator;
 const windows = std.os.windows;
 
-const page_size_os_arch_unsupported = @compileError("page size is not yet supported for this architecture/OS");
-const page_size_os_unsupported = @compileError("page size is not yet supported for this OS");
+const page_size_os_arch_unsupported = @compileError("The Zig standard library is missing page size definitions for the target architecture/OS");
+const page_size_os_unsupported = @compileError("The Zig standard library is missing page size definitions for the target OS");
+const page_size_query_without_libc_unsupported = @compileError("querying page size on this platform is not supported without linking libc");
+const page_size_query_without_PAGESIZE_unsupported = @compileError("The Zig standard library is missing _SC_PAGESIZE to query page size for the target architecture/OS");
+const page_size_query_unsupported = @compileError("The Zig standard library is missing support for querying page size on this OS");
 
 /// This value defines the largest page size for this architecture/OS combination that the standard library allows. The standard library asserts that the `pageSize()` does not exceed `page_size_max`. To allow larger page sizes, override `page_size_max` as well as `-z max-page-size`.
 pub const page_size_max: usize = switch (builtin.os.tag) {
