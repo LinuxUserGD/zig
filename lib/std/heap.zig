@@ -145,8 +145,8 @@ fn queryPageSize() usize {
             break :blk info.dwPageSize;
         },
         else => if (builtin.link_libc)
-            if (std.c._SC != void and std.c._SC.PAGESIZE != void)
-                std.c.sysconf(std.c._SC.PAGESIZE)
+            if (std.c._SC != void and @hasDecl(std.c._SC, "PAGESIZE"))
+                @intCast(std.c.sysconf(std.c._SC.PAGESIZE))
             else
                 @compileError("missing _SC.PAGESIZE declaration")
         else
