@@ -124,7 +124,9 @@ fn queryPageSize() usize {
     if (size > 0) return size;
     size = switch (builtin.os.tag) {
         .linux => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
-        .ios, .macos, .watchos, .tvos, .visionos => blk: {
+        .driverkit, .ios, .macos, .tvos, .visionos, .watchos => blk: {
+            if (!builtin.link_libc)
+                break :blk page_size_query_without_libc_unsupported;
             const task_port = std.c.mach_task_self();
             // This may fail "if there are any resource failures or other errors".
             if (task_port == std.c.TASK_NULL)
