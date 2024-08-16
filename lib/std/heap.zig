@@ -109,13 +109,11 @@ pub inline fn pageSize() usize {
     if (page_size == page_size_max) {
         if (std.debug.runtime_safety) {
             const size = queryPageSize();
-            assert(size == 0 or size == page_size);
+            assert(size == page_size);
         }
         return page_size;
     }
-    const size = queryPageSize();
-    assert(size > 0);
-    return size;
+    return queryPageSize();
 }
 
 // Runtime queried page size.
@@ -157,10 +155,8 @@ fn queryPageSize() usize {
             page_size_query_without_libc_unsupported,
     };
 
-    if (size != 0) {
-        assert(size >= page_size);
-        assert(size <= page_size_max);
-    }
+    assert(size >= page_size);
+    assert(size <= page_size_max);
     runtime_page_size.store(size, .unordered);
 
     return size;
