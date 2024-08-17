@@ -577,7 +577,6 @@ pub const Os = struct {
             .aix,
             .netbsd,
             .driverkit,
-            .android,
             .macos,
             .ios,
             .tvos,
@@ -592,6 +591,7 @@ pub const Os = struct {
             => true,
 
             .linux,
+            .android,
             .windows,
             .freestanding,
             .fuchsia,
