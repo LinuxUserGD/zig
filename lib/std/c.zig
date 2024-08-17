@@ -2223,7 +2223,7 @@ pub const _SC = switch (native_os) {
     .haiku => struct {
         pub const PAGESIZE = 27;
     },
-    .linux => struct {
+    .linux, .android => struct {
         pub const PAGESIZE = 30;
     },
     .minix => struct {

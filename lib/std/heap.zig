@@ -31,7 +31,7 @@ pub const max_page_size: usize = switch (builtin.os.tag) {
         else => page_size_os_arch_unsupported,
     },
     // TODO: freestanding, uefi, freebsd, netbsd, dragonfly, openbsd
-    .linux => switch (builtin.cpu.arch) {
+    .linux, .android => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 64 << 10,
         // Explicitly only 4kb.
@@ -73,7 +73,7 @@ pub const min_page_size: usize = switch (builtin.os.tag) {
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         else => page_size_os_arch_unsupported,
     },
-    .linux => switch (builtin.cpu.arch) {
+    .linux, .android => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         // Explicitly only 4kb.
@@ -119,7 +119,7 @@ fn queryPageSize() usize {
     var size = runtime_page_size.load(.unordered);
     if (size > 0) return size;
     size = switch (builtin.os.tag) {
-        .linux => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
+        .linux, .android => if (builtin.link_libc) @intCast(std.c.sysconf(std.c._SC.PAGESIZE)) else std.os.linux.getauxval(std.elf.AT_PAGESZ),
         .driverkit, .ios, .macos, .tvos, .visionos, .watchos => blk: {
             if (!builtin.link_libc)
                 @compileError("querying page size on this platform is not supported without linking libc");
