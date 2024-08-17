@@ -6770,7 +6770,7 @@ pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
     switch (native_os) {
         .linux, .android => {
             // memfd_create is available only in glibc versions starting with 2.27.
-            const use_c = native_os == .android or std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
+            const use_c = native_os != .android or std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
             const sys = if (use_c) std.c else linux;
             const rc = sys.memfd_create(name, flags);
             switch (errno(rc)) {
