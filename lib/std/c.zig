@@ -2226,9 +2226,6 @@ pub const _SC = switch (native_os) {
     .linux, .android => struct {
         pub const PAGESIZE = 30;
     },
-    .minix => struct {
-        pub const PAGESIZE = 28;
-    },
     .netbsd => struct {
         pub const PAGESIZE = 28;
     },
