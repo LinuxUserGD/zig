@@ -1319,9 +1319,3 @@ const CommonOpenFlags = packed struct {
         return result;
     }
 };
-
-test "pageSize() smoke test" {
-    const size = std.heap.pageSize();
-    // Check that pageSize is a power of 2.
-    std.debug.assert(size & (size - 1) == 0);
-}

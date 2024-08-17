@@ -154,6 +154,10 @@ pub const AF_SUN = struct {
     pub const NOPLM = 0x00000004;
 };
 
+pub const _SC = struct {
+    pub const NPROCESSORS_ONLN = 15;
+};
+
 pub const procfs = struct {
     pub const misc_header = extern struct {
         size: u32,

@@ -3,7 +3,6 @@ const builtin = @import("builtin");
 const math = std.math;
 const Allocator = std.mem.Allocator;
 const mem = std.mem;
-const heap = std.heap;
 const assert = std.debug.assert;
 
 pub fn SbrkAllocator(comptime sbrk: *const fn (n: usize) usize) type {
@@ -21,7 +20,7 @@ pub fn SbrkAllocator(comptime sbrk: *const fn (n: usize) usize) type {
         const max_usize = math.maxInt(usize);
         const ushift = math.Log2Int(usize);
         const bigpage_size = 64 * 1024;
-        const pages_per_bigpage = bigpage_size / heap.pageSize();
+        const pages_per_bigpage = bigpage_size / mem.page_size;
         const bigpage_count = max_usize / bigpage_size;
 
         /// Because of storing free list pointers, the minimum size class is 3.
@@ -61,7 +60,7 @@ pub fn SbrkAllocator(comptime sbrk: *const fn (n: usize) usize) type {
                     }
 
                     const next_addr = next_addrs[class];
-                    if (next_addr % heap.pageSize == 0) {
+                    if (next_addr % mem.page_size == 0) {
                         const addr = allocBigPages(1);
                         if (addr == 0) return null;
                         //std.debug.print("allocated fresh slot_size={d} class={d} addr=0x{x}\n", .{
@@ -156,7 +155,7 @@ pub fn SbrkAllocator(comptime sbrk: *const fn (n: usize) usize) type {
                 big_frees[class] = node.*;
                 return top_free_ptr;
             }
-            return sbrk(pow2_pages * pages_per_bigpage * heap.pageSize());
+            return sbrk(pow2_pages * pages_per_bigpage * mem.page_size);
         }
     };
 }
