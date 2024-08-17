@@ -8953,7 +8953,7 @@ pub const pipe2 = switch (native_os) {
     else => {},
 };
 pub const copy_file_range = switch (native_os) {
-    .linux, .android => private.copy_file_range,
+    .linux => private.copy_file_range,
     .freebsd => freebsd.copy_file_range,
     else => {},
 };
