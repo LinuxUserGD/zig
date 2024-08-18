@@ -64,7 +64,7 @@ pub fn intPtrType(target: std.Target) Type {
         },
 
         .powerpc, .powerpcle => switch (target.os.tag) {
-            .linux, .freebsd, .netbsd => return .{ .specifier = .int },
+            .linux, .android, .freebsd, .netbsd => return .{ .specifier = .int },
             else => {},
         },
 
@@ -224,7 +224,7 @@ pub fn packAllEnums(target: std.Target) bool {
 pub fn defaultAlignment(target: std.Target) u29 {
     switch (target.cpu.arch) {
         .avr => return 1,
-        .arm => if (target.isAndroid() or target.os.tag == .ios) return 16 else return 8,
+        .arm => if (target.isAndroid() or target.os.tag == .android or target.os.tag == .ios) return 16 else return 8,
         .sparc => if (std.Target.sparc.featureSetHas(target.cpu.features, .v9)) return 16 else return 8,
         .mips, .mipsel => switch (target.abi) {
             .none, .gnuabi64 => return 16,
@@ -239,6 +239,7 @@ pub fn systemCompiler(target: std.Target) LangOpts.Compiler {
     // the rest for documentation as fn returns .clang
     if (target.isDarwin() or
         target.isAndroid() or
+        target.os.tag == .android or
         target.isBSD() or
         target.os.tag == .fuchsia or
         target.os.tag == .solaris or
@@ -250,7 +251,7 @@ pub fn systemCompiler(target: std.Target) LangOpts.Compiler {
     if (target.os.tag == .uefi) return .msvc;
     // this is before windows to grab WindowsGnu
     if (target.abi.isGnu() or
-        target.os.tag == .linux)
+        target.os.tag == .linux or target.os.tag == .android)
     {
         return .gcc;
     }
@@ -269,6 +270,7 @@ pub fn hasFloat128(target: std.Target) bool {
         .dragonfly,
         .haiku,
         .linux,
+        .android,
         .openbsd,
         .solaris,
         => target.cpu.arch.isX86(),
@@ -617,7 +619,7 @@ pub fn toLLVMTriple(target: std.Target, buf: []u8) []const u8 {
         .dragonfly => "dragonfly",
         .freebsd => "freebsd",
         .fuchsia => "fuchsia",
-        .linux => "linux",
+        .linux, .android => "linux",
         .ps3 => "lv2",
         .netbsd => "netbsd",
         .openbsd => "openbsd",

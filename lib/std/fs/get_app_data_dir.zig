@@ -30,7 +30,7 @@ pub fn getAppDataDir(allocator: mem.Allocator, appname: []const u8) GetAppDataDi
             };
             return fs.path.join(allocator, &[_][]const u8{ home_dir, "Library", "Application Support", appname });
         },
-        .linux, .freebsd, .netbsd, .dragonfly, .openbsd, .solaris, .illumos => {
+        .linux, .android, .freebsd, .netbsd, .dragonfly, .openbsd, .solaris, .illumos => {
             if (posix.getenv("XDG_DATA_HOME")) |xdg| {
                 return fs.path.join(allocator, &[_][]const u8{ xdg, appname });
             }

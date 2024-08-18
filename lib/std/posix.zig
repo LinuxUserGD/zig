@@ -18,6 +18,7 @@ const builtin = @import("builtin");
 const root = @import("root");
 const std = @import("std.zig");
 const mem = std.mem;
+const heap = std.heap;
 const fs = std.fs;
 const max_path_bytes = fs.max_path_bytes;
 const maxInt = std.math.maxInt;
@@ -43,7 +44,7 @@ const wasi = std.os.wasi;
 pub const system = if (use_libc)
     std.c
 else switch (native_os) {
-    .linux => linux,
+    .linux, .android => linux,
     .plan9 => std.os.plan9,
     else => struct {
         pub const ucontext_t = void;
@@ -351,9 +352,9 @@ pub inline fn fchmodat(dirfd: fd_t, path: []const u8, mode: mode_t, flags: u32) 
 
     // No special handling for linux is needed if we can use the libc fallback
     // or `flags` is empty. Glibc only added the fallback in 2.32.
-    const skip_fchmodat_fallback = native_os != .linux or
+    const skip_fchmodat_fallback = native_os != .android and (native_os != .linux or
         std.c.versionCheck(.{ .major = 2, .minor = 32, .patch = 0 }) or
-        flags == 0;
+        flags == 0);
 
     // This function is marked inline so that when flags is comptime-known,
     // skip_fchmodat_fallback will be comptime-known true.
@@ -395,7 +396,7 @@ fn fchmodat2(dirfd: fd_t, path: []const u8, mode: mode_t, flags: u32) FChmodAtEr
         var has_fchmodat2: bool = true;
     };
     const path_c = try toPosixPath(path);
-    const use_fchmodat2 = (builtin.os.isAtLeast(.linux, .{ .major = 6, .minor = 6, .patch = 0 }) orelse false) and
+    const use_fchmodat2 = native_os != .android and (builtin.os.isAtLeast(.linux, .{ .major = 6, .minor = 6, .patch = 0 }) orelse false) and
         @atomicLoad(bool, &global.has_fchmodat2, .monotonic);
     while (use_fchmodat2) {
         // Later on this should be changed to `system.fchmodat2`
@@ -537,7 +538,7 @@ pub const RebootError = error{
 } || UnexpectedError;
 
 pub const RebootCommand = switch (native_os) {
-    .linux => union(linux.LINUX_REBOOT.CMD) {
+    .linux, .android => union(linux.LINUX_REBOOT.CMD) {
         RESTART: void,
         HALT: void,
         CAD_ON: void,
@@ -552,7 +553,7 @@ pub const RebootCommand = switch (native_os) {
 
 pub fn reboot(cmd: RebootCommand) RebootError!void {
     switch (native_os) {
-        .linux => {
+        .linux, .android => {
             switch (linux.E.init(linux.reboot(
                 .MAGIC1,
                 .MAGIC2,
@@ -603,7 +604,7 @@ pub fn getrandom(buffer: []u8) GetRandomError!void {
     };
     if (@TypeOf(system.getrandom) != void) {
         var buf = buffer;
-        const use_c = native_os != .linux or
+        const use_c = (native_os != .linux and native_os != .android) or
             std.c.versionCheck(std.SemanticVersion{ .major = 2, .minor = 25, .patch = 0 });
 
         while (buf.len != 0) {
@@ -664,7 +665,7 @@ pub fn abort() noreturn {
         }
         windows.kernel32.ExitProcess(3);
     }
-    if (!builtin.link_libc and native_os == .linux) {
+    if (!builtin.link_libc and (native_os == .linux or native_os == .android)) {
         // The Linux man page says that the libc abort() function
         // "first unblocks the SIGABRT signal", but this is a footgun
         // for user-defined signal handlers that want to restore some state in
@@ -717,7 +718,7 @@ pub fn raise(sig: u8) RaiseError!void {
         }
     }
 
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         var set: sigset_t = undefined;
         // block application signals
         sigprocmask(SIG.BLOCK, &linux.app_mask, &set);
@@ -760,7 +761,7 @@ pub fn exit(status: u8) noreturn {
     if (native_os == .wasi) {
         wasi.proc_exit(status);
     }
-    if (native_os == .linux and !builtin.single_threaded) {
+    if (native_os == .linux or native_os == .android and !builtin.single_threaded) {
         linux.exit_group(status);
     }
     if (native_os == .uefi) {
@@ -843,7 +844,7 @@ pub fn read(fd: fd_t, buf: []u8) ReadError!usize {
 
     // Prevents EINVAL.
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -983,7 +984,7 @@ pub fn pread(fd: fd_t, buf: []u8, offset: u64) PReadError!usize {
 
     // Prevent EINVAL.
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -1232,7 +1233,7 @@ pub fn write(fd: fd_t, bytes: []const u8) WriteError!usize {
     }
 
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -1391,7 +1392,7 @@ pub fn pwrite(fd: fd_t, bytes: []const u8, offset: u64) PWriteError!usize {
 
     // Prevent EINVAL.
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(isize),
     };
@@ -1874,7 +1875,7 @@ pub fn execveZ(
                 .BADARCH => return error.InvalidExe,
                 else => return unexpectedErrno(err),
             },
-            .linux => switch (err) {
+            .linux, .android => switch (err) {
                 .LIBBAD => return error.InvalidExe,
                 else => return unexpectedErrno(err),
             },
@@ -3474,7 +3475,7 @@ pub fn isatty(handle: fd_t) bool {
 
         return true;
     }
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         while (true) {
             var wsz: winsize = undefined;
             const fd: usize = @bitCast(@as(isize, handle));
@@ -4547,7 +4548,7 @@ pub const FanotifyInitError = error{
 } || UnexpectedError;
 
 pub fn fanotify_init(flags: std.os.linux.fanotify.InitFlags, event_f_flags: u32) FanotifyInitError!i32 {
-    const rc = system.fanotify_init(flags, event_f_flags);
+    const rc = linux.fanotify_init(flags, event_f_flags);
     switch (errno(rc)) {
         .SUCCESS => return @intCast(rc),
         .INVAL => unreachable,
@@ -4629,8 +4630,8 @@ pub const MProtectError = error{
 } || UnexpectedError;
 
 /// `memory.len` must be page-aligned.
-pub fn mprotect(memory: []align(mem.page_size) u8, protection: u32) MProtectError!void {
-    assert(mem.isAligned(memory.len, mem.page_size));
+pub fn mprotect(memory: []align(heap.min_page_size) u8, protection: u32) MProtectError!void {
+    assert(mem.isAligned(memory.len, heap.pageSize()));
     if (native_os == .windows) {
         const win_prot: windows.DWORD = switch (@as(u3, @truncate(protection))) {
             0b000 => windows.PAGE_NOACCESS,
@@ -4695,21 +4696,21 @@ pub const MMapError = error{
 /// * SIGSEGV - Attempted write into a region mapped as read-only.
 /// * SIGBUS - Attempted  access to a portion of the buffer that does not correspond to the file
 pub fn mmap(
-    ptr: ?[*]align(mem.page_size) u8,
+    ptr: ?[*]align(heap.min_page_size) u8,
     length: usize,
     prot: u32,
     flags: system.MAP,
     fd: fd_t,
     offset: u64,
-) MMapError![]align(mem.page_size) u8 {
+) MMapError![]align(heap.min_page_size) u8 {
     const mmap_sym = if (lfs64_abi) system.mmap64 else system.mmap;
     const rc = mmap_sym(ptr, length, prot, @bitCast(flags), fd, @bitCast(offset));
     const err: E = if (builtin.link_libc) blk: {
-        if (rc != std.c.MAP_FAILED) return @as([*]align(mem.page_size) u8, @ptrCast(@alignCast(rc)))[0..length];
+        if (rc != std.c.MAP_FAILED) return @as([*]align(heap.min_page_size) u8, @ptrCast(@alignCast(rc)))[0..length];
         break :blk @enumFromInt(system._errno().*);
     } else blk: {
         const err = errno(rc);
-        if (err == .SUCCESS) return @as([*]align(mem.page_size) u8, @ptrFromInt(rc))[0..length];
+        if (err == .SUCCESS) return @as([*]align(heap.min_page_size) u8, @ptrFromInt(rc))[0..length];
         break :blk err;
     };
     switch (err) {
@@ -4735,7 +4736,7 @@ pub fn mmap(
 /// Zig's munmap function does not, for two reasons:
 /// * It violates the Zig principle that resource deallocation must succeed.
 /// * The Windows function, VirtualFree, has this restriction.
-pub fn munmap(memory: []align(mem.page_size) const u8) void {
+pub fn munmap(memory: []align(heap.min_page_size) const u8) void {
     switch (errno(system.munmap(memory.ptr, memory.len))) {
         .SUCCESS => return,
         .INVAL => unreachable, // Invalid parameters.
@@ -4748,7 +4749,7 @@ pub const MSyncError = error{
     UnmappedMemory,
 } || UnexpectedError;
 
-pub fn msync(memory: []align(mem.page_size) u8, flags: i32) MSyncError!void {
+pub fn msync(memory: []align(heap.min_page_size) u8, flags: i32) MSyncError!void {
     switch (errno(system.msync(memory.ptr, memory.len, flags))) {
         .SUCCESS => return,
         .NOMEM => return error.UnmappedMemory, // Unsuccessful, provided pointer does not point mapped memory
@@ -5100,7 +5101,7 @@ pub const SeekError = error{
 
 /// Repositions read/write file offset relative to the beginning.
 pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, offset, &result, SEEK.SET))) {
             .SUCCESS => return,
@@ -5143,7 +5144,7 @@ pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
 
 /// Repositions read/write file offset relative to the current offset.
 pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @bitCast(offset), &result, SEEK.CUR))) {
             .SUCCESS => return,
@@ -5185,7 +5186,7 @@ pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
 
 /// Repositions read/write file offset relative to the end.
 pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @bitCast(offset), &result, SEEK.END))) {
             .SUCCESS => return,
@@ -5227,7 +5228,7 @@ pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
 
 /// Returns the read/write file offset relative to the beginning.
 pub fn lseek_CUR_get(fd: fd_t) SeekError!u64 {
-    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, 0, &result, SEEK.CUR))) {
             .SUCCESS => return result,
@@ -5408,7 +5409,7 @@ pub fn realpathZ(pathname: [*:0]const u8, out_buffer: *[max_path_bytes]u8) RealP
     }
     if (!builtin.link_libc) {
         const flags: O = switch (native_os) {
-            .linux => .{
+            .linux, .android => .{
                 .NONBLOCK = true,
                 .CLOEXEC = true,
                 .PATH = true,
@@ -5778,7 +5779,7 @@ pub fn gethostname(name_buffer: *[HOST_NAME_MAX]u8) GetHostNameError![]u8 {
             else => |err| return unexpectedErrno(err),
         }
     }
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         const uts = uname();
         const hostname = mem.sliceTo(&uts.nodename, 0);
         const result = name_buffer[0..hostname.len];
@@ -6181,13 +6182,13 @@ pub fn sendfile(
     // Prevents EOVERFLOW.
     const size_t = std.meta.Int(.unsigned, @typeInfo(usize).Int.bits - 1);
     const max_count = switch (native_os) {
-        .linux => 0x7ffff000,
+        .linux, .android => 0x7ffff000,
         .macos, .ios, .watchos, .tvos, .visionos => maxInt(i32),
         else => maxInt(size_t),
     };
 
     switch (native_os) {
-        .linux => sf: {
+        .linux, .android => sf: {
             if (headers.len != 0) {
                 const amt = try writev(out_fd, headers);
                 total_written += amt;
@@ -6767,9 +6768,9 @@ pub const MemFdCreateError = error{
 
 pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
     switch (native_os) {
-        .linux => {
+        .linux, .android => {
             // memfd_create is available only in glibc versions starting with 2.27.
-            const use_c = std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
+            const use_c = native_os != .android and std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
             const sys = if (use_c) std.c else linux;
             const rc = sys.memfd_create(name, flags);
             switch (errno(rc)) {
@@ -7057,7 +7058,7 @@ pub const MincoreError = error{
 } || UnexpectedError;
 
 /// Determine whether pages are resident in memory.
-pub fn mincore(ptr: [*]align(mem.page_size) u8, length: usize, vec: [*]u8) MincoreError!void {
+pub fn mincore(ptr: [*]align(heap.min_page_size) u8, length: usize, vec: [*]u8) MincoreError!void {
     return switch (errno(system.mincore(ptr, length, vec))) {
         .SUCCESS => {},
         .AGAIN => error.SystemResources,
@@ -7103,7 +7104,7 @@ pub const MadviseError = error{
 
 /// Give advice about use of memory.
 /// This syscall is optional and is sometimes configured to be disabled.
-pub fn madvise(ptr: [*]align(mem.page_size) u8, length: usize, advice: u32) MadviseError!void {
+pub fn madvise(ptr: [*]align(heap.min_page_size) u8, length: usize, advice: u32) MadviseError!void {
     switch (errno(system.madvise(ptr, length, advice))) {
         .SUCCESS => return,
         .ACCES => return error.AccessDenied,
@@ -7178,7 +7179,7 @@ pub fn perf_event_open(
     group_fd: fd_t,
     flags: usize,
 ) PerfEventOpenError!fd_t {
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         // There is no syscall wrapper for this function exposed by libcs
         const rc = linux.perf_event_open(attr, pid, cpu, group_fd, flags);
         switch (errno(rc)) {
@@ -7270,7 +7271,7 @@ pub fn ptrace(request: u32, pid: pid_t, addr: usize, signal: usize) PtraceError!
         @compileError("Unsupported OS");
 
     return switch (native_os) {
-        .linux => switch (errno(linux.ptrace(request, pid, addr, signal, 0))) {
+        .linux, .android => switch (errno(linux.ptrace(request, pid, addr, signal, 0))) {
             .SUCCESS => {},
             .SRCH => error.ProcessNotFound,
             .FAULT => unreachable,

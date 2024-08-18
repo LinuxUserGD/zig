@@ -79,6 +79,7 @@ pub fn isGetFdPathSupportedOnTarget(os: std.Target.Os) bool {
         .tvos,
         .visionos,
         .linux,
+        .android,
         .solaris,
         .illumos,
         .freebsd,
@@ -127,7 +128,7 @@ pub fn getFdPath(fd: std.posix.fd_t, out_buffer: *[max_path_bytes]u8) std.posix.
             const len = mem.indexOfScalar(u8, out_buffer[0..], 0) orelse max_path_bytes;
             return out_buffer[0..len];
         },
-        .linux => {
+        .linux, .android => {
             var procfs_buf: ["/proc/self/fd/-2147483648\x00".len]u8 = undefined;
             const proc_path = std.fmt.bufPrintZ(procfs_buf[0..], "/proc/self/fd/{d}", .{fd}) catch unreachable;
 

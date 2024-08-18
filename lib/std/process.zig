@@ -1493,6 +1493,7 @@ pub const UserInfo = struct {
 pub fn getUserInfo(name: []const u8) !UserInfo {
     return switch (native_os) {
         .linux,
+        .android,
         .macos,
         .watchos,
         .visionos,
@@ -1525,7 +1526,7 @@ pub fn posixGetUserInfo(name: []const u8) !UserInfo {
         ReadGroupId,
     };
 
-    var buf: [std.mem.page_size]u8 = undefined;
+    var buf: [std.heap.min_page_size]u8 = undefined;
     var name_index: usize = 0;
     var state = State.Start;
     var uid: posix.uid_t = 0;
@@ -1615,7 +1616,7 @@ pub fn posixGetUserInfo(name: []const u8) !UserInfo {
 
 pub fn getBaseAddress() usize {
     switch (native_os) {
-        .linux => {
+        .linux, .android => {
             const base = std.os.linux.getauxval(std.elf.AT_BASE);
             if (base != 0) {
                 return base;
@@ -1708,7 +1709,7 @@ pub const TotalSystemMemoryError = error{
 /// using QEMU user mode emulation.
 pub fn totalSystemMemory() TotalSystemMemoryError!u64 {
     switch (native_os) {
-        .linux => {
+        .linux, .android => {
             return totalSystemMemoryLinux() catch return error.UnknownTotalSystemMemory;
         },
         .freebsd => {

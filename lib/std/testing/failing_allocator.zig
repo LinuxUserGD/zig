@@ -8,7 +8,7 @@ pub const Config = struct {
     ///
     /// var a = try failing_alloc.create(i32);
     /// var b = try failing_alloc.create(i32);
-    /// testing.expectError(error.OutOfMemory, failing_alloc.create(i32));
+    /// testing.expectError(error.InputOutput, failing_alloc.create(i32));
     fail_index: usize = std.math.maxInt(usize),
 
     /// Number of successful resizes to expect from this allocator. The next resize will fail.

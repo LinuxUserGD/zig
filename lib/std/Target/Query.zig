@@ -130,7 +130,7 @@ fn updateOsVersionRange(self: *Query, os: Target.Os) void {
             .{ .semver = os.version_range.semver.min },
             .{ .semver = os.version_range.semver.max },
         },
-        .linux => .{
+        .linux, .android => .{
             .{ .semver = os.version_range.linux.range.min },
             .{ .semver = os.version_range.linux.range.max },
         },
@@ -523,7 +523,7 @@ fn parseOs(result: *Query, diags: *ParseOptions.Diagnostics, text: []const u8) !
     const version_text = it.rest();
     if (version_text.len > 0) switch (tag.getVersionRangeTag()) {
         .none => return error.InvalidOperatingSystemVersion,
-        .semver, .linux => range: {
+        .semver, .linux, .android => range: {
             var range_it = mem.splitSequence(u8, version_text, "...");
             result.os_version_min = .{
                 .semver = parseVersion(range_it.first()) catch |err| switch (err) {
@@ -623,7 +623,7 @@ test parse {
         });
         const target = try std.zig.system.resolveTargetQuery(query);
 
-        try std.testing.expect(target.os.tag == .linux);
+        try std.testing.expect(target.os.tag == .linux or target.os.tag == .android);
         try std.testing.expect(target.abi == .gnu);
         try std.testing.expect(target.cpu.arch == .x86_64);
         try std.testing.expect(!Target.x86.featureSetHas(target.cpu.features, .sse));
@@ -648,7 +648,7 @@ test parse {
         });
         const target = try std.zig.system.resolveTargetQuery(query);
 
-        try std.testing.expect(target.os.tag == .linux);
+        try std.testing.expect(target.os.tag == .linux or target.os.tag == .android);
         try std.testing.expect(target.abi == .musleabihf);
         try std.testing.expect(target.cpu.arch == .arm);
         try std.testing.expect(target.cpu.model == &Target.arm.cpu.generic);
@@ -666,7 +666,7 @@ test parse {
         const target = try std.zig.system.resolveTargetQuery(query);
 
         try std.testing.expect(target.cpu.arch == .aarch64);
-        try std.testing.expect(target.os.tag == .linux);
+        try std.testing.expect(target.os.tag == .linux or target.os.tag == .android);
         try std.testing.expect(target.os.version_range.linux.range.min.major == 3);
         try std.testing.expect(target.os.version_range.linux.range.min.minor == 10);
         try std.testing.expect(target.os.version_range.linux.range.min.patch == 0);

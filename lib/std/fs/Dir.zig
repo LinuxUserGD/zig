@@ -326,7 +326,7 @@ pub const Iterator = switch (native_os) {
             self.first_iter = true;
         }
     },
-    .linux => struct {
+    .linux, .android => struct {
         dir: Dir,
         // The if guard is solely there to prevent compile errors from missing `linux.dirent64`
         // definition when compiling for other OSes. It doesn't do anything when compiling for Linux.
@@ -613,7 +613,7 @@ fn iterateImpl(self: Dir, first_iter_start_value: bool) Iterator {
             .buf = undefined,
             .first_iter = first_iter_start_value,
         },
-        .linux => return Iterator{
+        .linux, .android => return Iterator{
             .dir = self,
             .index = 0,
             .end_index = 0,
@@ -1289,7 +1289,7 @@ pub fn realpathZ(self: Dir, pathname: [*:0]const u8, out_buffer: []u8) RealPathE
     }
 
     const flags: posix.O = switch (native_os) {
-        .linux => .{
+        .linux, .android => .{
             .NONBLOCK = true,
             .CLOEXEC = true,
             .PATH = true,
@@ -2600,7 +2600,7 @@ fn copy_file(fd_in: posix.fd_t, fd_out: posix.fd_t, maybe_size: ?u64) CopyFileRa
         }
     }
 
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         // Try copy_file_range first as that works at the FS level and is the
         // most efficient method (if available).
         var offset: u64 = 0;

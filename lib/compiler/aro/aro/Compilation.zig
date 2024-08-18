@@ -248,7 +248,7 @@ fn generateSystemDefines(comp: *Compilation, w: anytype) !void {
 
     // os macros
     switch (comp.target.os.tag) {
-        .linux => try w.writeAll(
+        .linux, .android => try w.writeAll(
             \\#define linux 1
             \\#define __linux 1
             \\#define __linux__ 1

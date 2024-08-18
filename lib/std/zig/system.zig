@@ -183,7 +183,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     var os = query_os_tag.defaultVersionRange(query.cpu_arch orelse builtin.cpu.arch);
     if (query.os_tag == null) {
         switch (builtin.target.os.tag) {
-            .linux => {
+            .linux, .android => {
                 const uts = posix.uname();
                 const release = mem.sliceTo(&uts.release, 0);
                 // The release field sometimes has a weird format,
@@ -310,7 +310,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     if (query.os_version_min) |min| switch (min) {
         .none => {},
         .semver => |semver| switch (os.tag) {
-            .linux => os.version_range.linux.range.min = semver,
+            .linux, .android => os.version_range.linux.range.min = semver,
             else => os.version_range.semver.min = semver,
         },
         .windows => |win_ver| os.version_range.windows.min = win_ver,
@@ -319,7 +319,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     if (query.os_version_max) |max| switch (max) {
         .none => {},
         .semver => |semver| switch (os.tag) {
-            .linux => os.version_range.linux.range.max = semver,
+            .linux, .android => os.version_range.linux.range.max = semver,
             else => os.version_range.semver.max = semver,
         },
         .windows => |win_ver| os.version_range.windows.max = win_ver,
@@ -410,7 +410,7 @@ fn detectNativeCpuAndFeatures(cpu_arch: Target.Cpu.Arch, os: Target.Os, query: T
     }
 
     switch (builtin.os.tag) {
-        .linux => return linux.detectNativeCpuAndFeatures(),
+        .linux, .android => return linux.detectNativeCpuAndFeatures(),
         .macos => return darwin.macos.detectNativeCpuAndFeatures(),
         .windows => return windows.detectNativeCpuAndFeatures(),
         else => {},
@@ -944,13 +944,13 @@ fn detectAbiAndDynamicLinker(
     query: Target.Query,
 ) DetectError!Target {
     const native_target_has_ld = comptime builtin.target.hasDynamicLinker();
-    const is_linux = builtin.target.os.tag == .linux;
+    const is_linux = builtin.target.os.tag == .linux or builtin.target.os.tag == .android;
     const is_solarish = builtin.target.os.tag.isSolarish();
     const have_all_info = query.dynamic_linker.get() != null and
         query.abi != null and (!is_linux or query.abi.?.isGnu());
     const os_is_non_native = query.os_tag != null;
     // The Solaris/illumos environment is always the same.
-    if (!native_target_has_ld or have_all_info or os_is_non_native or is_solarish) {
+    if (builtin.target.os.tag == .android or !native_target_has_ld or have_all_info or os_is_non_native or is_solarish) {
         return defaultAbiAndDynamicLinker(cpu, os, query);
     }
     if (query.abi) |abi| {
@@ -1010,6 +1010,7 @@ fn detectAbiAndDynamicLinker(
             else => "/usr/bin/env",
             // Haiku does not have a /usr root directory.
             .haiku => "/bin/env",
+            .android => "/data/data/com.termux/files/usr/bin/env",
         };
 
         // According to `man 2 execve`:

@@ -496,7 +496,7 @@ fn cleanupAfterWait(self: *ChildProcess, status: u32) !Term {
     if (self.err_pipe) |err_pipe| {
         defer destroyPipe(err_pipe);
 
-        if (native_os == .linux) {
+        if (native_os == .linux or native_os == .android) {
             var fd = [1]posix.pollfd{posix.pollfd{
                 .fd = err_pipe[0],
                 .events = posix.POLL.IN,
@@ -644,7 +644,7 @@ fn spawnPosix(self: *ChildProcess) SpawnError!void {
     // This pipe is used to communicate errors between the time of fork
     // and execve from the child process to the parent process.
     const err_pipe = blk: {
-        if (native_os == .linux) {
+        if (native_os == .linux or native_os == .android) {
             const fd = try posix.eventfd(0, linux.EFD.CLOEXEC);
             // There's no distinction between the readable and the writeable
             // end with eventfd

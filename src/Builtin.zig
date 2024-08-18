@@ -105,7 +105,7 @@ pub fn append(opts: @This(), buffer: *std.ArrayList(u8)) Allocator.Error!void {
             semver.max.minor,
             semver.max.patch,
         }),
-        .linux => |linux| try buffer.writer().print(
+        .linux, .android => |linux| try buffer.writer().print(
             \\ .linux = .{{
             \\        .range = .{{
             \\            .min = .{{

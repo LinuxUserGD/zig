@@ -201,7 +201,7 @@ pub const HashHelper = struct {
             },
             std.Target.Os.TaggedVersionRange => {
                 switch (x) {
-                    .linux => |linux| {
+                    .linux, .android => |linux| {
                         hh.add(linux.range.min);
                         hh.add(linux.range.max);
                         hh.add(linux.glibc);

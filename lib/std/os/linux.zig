@@ -540,7 +540,7 @@ pub fn execve(path: [*:0]const u8, argv: [*:null]const ?[*:0]const u8, envp: [*:
 pub fn fork() usize {
     if (comptime native_arch.isSPARC()) {
         return syscall_fork();
-    } else if (@hasField(SYS, "fork")) {
+    } else if (@hasField(SYS, "fork") and (comptime builtin.cpu.arch != .x86_64)) {
         return syscall0(.fork);
     } else {
         return syscall2(.clone, SIG.CHLD, 0);
@@ -888,7 +888,7 @@ pub fn munmap(address: [*]const u8, length: usize) usize {
 }
 
 pub fn poll(fds: [*]pollfd, n: nfds_t, timeout: i32) usize {
-    if (@hasField(SYS, "poll")) {
+    if (@hasField(SYS, "poll") and (comptime builtin.cpu.arch != .x86_64)) {
         return syscall3(.poll, @intFromPtr(fds), n, @as(u32, @bitCast(timeout)));
     } else {
         return syscall5(
@@ -1040,7 +1040,7 @@ pub fn pread(fd: i32, buf: [*]u8, count: usize, offset: i64) usize {
 }
 
 pub fn access(path: [*:0]const u8, mode: u32) usize {
-    if (@hasField(SYS, "access")) {
+    if (@hasField(SYS, "access") and (comptime builtin.cpu.arch != .x86_64)) {
         return syscall2(.access, @intFromPtr(path), mode);
     } else {
         return syscall4(.faccessat, @as(usize, @bitCast(@as(isize, AT.FDCWD))), @intFromPtr(path), mode, 0);
@@ -1054,7 +1054,7 @@ pub fn faccessat(dirfd: i32, path: [*:0]const u8, mode: u32, flags: u32) usize {
 pub fn pipe(fd: *[2]i32) usize {
     if (comptime (native_arch.isMIPS() or native_arch.isSPARC())) {
         return syscall_pipe(fd);
-    } else if (@hasField(SYS, "pipe")) {
+    } else if (@hasField(SYS, "pipe") and (comptime builtin.cpu.arch != .x86_64)) {
         return syscall1(.pipe, @intFromPtr(fd));
     } else {
         return syscall2(.pipe2, @intFromPtr(fd), 0);
