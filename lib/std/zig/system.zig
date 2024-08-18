@@ -184,7 +184,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     var os = query_os_tag.defaultVersionRange(query.cpu_arch orelse builtin.cpu.arch);
     if (query.os_tag == null) {
         switch (builtin.target.os.tag) {
-            .linux => {
+            .linux, .android => {
                 const uts = posix.uname();
                 const release = mem.sliceTo(&uts.release, 0);
                 // The release field sometimes has a weird format,
@@ -311,7 +311,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     if (query.os_version_min) |min| switch (min) {
         .none => {},
         .semver => |semver| switch (os.tag) {
-            .linux => os.version_range.linux.range.min = semver,
+            .linux, .android => os.version_range.linux.range.min = semver,
             else => os.version_range.semver.min = semver,
         },
         .windows => |win_ver| os.version_range.windows.min = win_ver,
@@ -320,7 +320,7 @@ pub fn resolveTargetQuery(query: Target.Query) DetectError!Target {
     if (query.os_version_max) |max| switch (max) {
         .none => {},
         .semver => |semver| switch (os.tag) {
-            .linux => os.version_range.linux.range.max = semver,
+            .linux, .android => os.version_range.linux.range.max = semver,
             else => os.version_range.semver.max = semver,
         },
         .windows => |win_ver| os.version_range.windows.max = win_ver,
@@ -411,7 +411,7 @@ fn detectNativeCpuAndFeatures(cpu_arch: Target.Cpu.Arch, os: Target.Os, query: T
     }
 
     switch (builtin.os.tag) {
-        .linux => return linux.detectNativeCpuAndFeatures(),
+        .linux, .android => return linux.detectNativeCpuAndFeatures(),
         .macos => return darwin.macos.detectNativeCpuAndFeatures(),
         .windows => return windows.detectNativeCpuAndFeatures(),
         else => {},
@@ -926,6 +926,31 @@ fn glibcVerFromSoFile(file: fs.File) !std.SemanticVersion {
     return max_ver;
 }
 
+/// This function recursively looks for a shebang line and follows it, starting with the given file.
+/// Returns the first file found without a shebang.
+fn resolveShebangELF(start_file_name: []const u8) !fs.File {
+    // #! (2) + 255 (max length of shebang line since Linux 5.1) + \n (1)
+    var buffer: [258]u8 = undefined;
+    const min_len: usize = 4;
+    var file_name = start_file_name;
+    while (true) {
+        const file = try fs.openFileAbsolute(file_name, .{});
+        errdefer file.close();
+        const len = preadAtLeast(file, &buffer, 0, min_len) catch |err| switch (err) {
+            error.UnexpectedEndOfFile,
+            error.UnableToReadElfFile,
+            => return file,
+            else => |e| return e,
+        };
+        const newline = mem.indexOfScalar(u8, buffer[0..len], '\n') orelse return file;
+        const line = buffer[0..newline];
+        if (!mem.startsWith(u8, line, "#!")) return file;
+        var it = mem.tokenizeAny(u8, line[2..], " ");
+        file_name = it.next() orelse return error.MalformedShebang;
+        file.close();
+    }
+}
+
 /// In the past, this function attempted to use the executable's own binary if it was dynamically
 /// linked to answer both the C ABI question and the dynamic linker question. However, this
 /// could be problematic on a system that uses a RUNPATH for the compiler binary, locking
@@ -945,13 +970,13 @@ fn detectAbiAndDynamicLinker(
     query: Target.Query,
 ) DetectError!Target {
     const native_target_has_ld = comptime builtin.target.hasDynamicLinker();
-    const is_linux = builtin.target.os.tag == .linux;
+    const is_linux = builtin.target.os.tag == .linux or builtin.target.os.tag == .android;
     const is_solarish = builtin.target.os.tag.isSolarish();
     const have_all_info = query.dynamic_linker.get() != null and
         query.abi != null and (!is_linux or query.abi.?.isGnu());
     const os_is_non_native = query.os_tag != null;
     // The Solaris/illumos environment is always the same.
-    if (!native_target_has_ld or have_all_info or os_is_non_native or is_solarish) {
+    if (builtin.target.os.tag == .android or !native_target_has_ld or have_all_info or os_is_non_native or is_solarish) {
         return defaultAbiAndDynamicLinker(cpu, os, query);
     }
     if (query.abi) |abi| {
@@ -1001,108 +1026,26 @@ fn detectAbiAndDynamicLinker(
     // Best case scenario: the executable is dynamically linked, and we can iterate
     // over our own shared objects and find a dynamic linker.
     const elf_file = elf_file: {
-        // This block looks for a shebang line in /usr/bin/env,
-        // if it finds one, then instead of using /usr/bin/env as the ELF file to examine, it uses the file it references instead,
-        // doing the same logic recursively in case it finds another shebang line.
-
-        var file_name: []const u8 = switch (os.tag) {
-            // Since /usr/bin/env is hard-coded into the shebang line of many portable scripts, it's a
-            // reasonably reliable path to start with.
-            else => "/usr/bin/env",
-            // Haiku does not have a /usr root directory.
-            .haiku => "/bin/env",
-        };
-
-        // According to `man 2 execve`:
-        //
-        // The kernel imposes a maximum length on the text
-        // that follows the "#!" characters at the start of a script;
-        // characters beyond the limit are ignored.
-        // Before Linux 5.1, the limit is 127 characters.
-        // Since Linux 5.1, the limit is 255 characters.
-        //
-        // Tests show that bash and zsh consider 255 as total limit,
-        // *including* "#!" characters and ignoring newline.
-        // For safety, we set max length as 255 + \n (1).
-        var buffer: [255 + 1]u8 = undefined;
-        while (true) {
-            // Interpreter path can be relative on Linux, but
-            // for simplicity we are asserting it is an absolute path.
-            const file = fs.openFileAbsolute(file_name, .{}) catch |err| switch (err) {
-                error.NoSpaceLeft => unreachable,
-                error.NameTooLong => unreachable,
-                error.PathAlreadyExists => unreachable,
-                error.SharingViolation => unreachable,
-                error.InvalidUtf8 => unreachable, // WASI only
-                error.InvalidWtf8 => unreachable, // Windows only
-                error.BadPathName => unreachable,
-                error.PipeBusy => unreachable,
-                error.FileLocksNotSupported => unreachable,
-                error.WouldBlock => unreachable,
-                error.FileBusy => unreachable, // opened without write permissions
-                error.AntivirusInterference => unreachable, // Windows-only error
-
-                error.IsDir,
-                error.NotDir,
-                error.AccessDenied,
-                error.NoDevice,
-                error.FileNotFound,
-                error.NetworkNotFound,
-                error.FileTooBig,
-                error.Unexpected,
-                => |e| {
-                    std.log.warn("Encountered error: {s}, falling back to default ABI and dynamic linker.", .{@errorName(e)});
-                    return defaultAbiAndDynamicLinker(cpu, os, query);
-                },
-
-                else => |e| return e,
+        // This block looks for /usr/bin/env (or the file it references through a shebang) and uses that as the ELF file to examine.
+        // Since /usr/bin/env is hard-coded into the shebang line of many portable scripts, it's a reasonably reliable path to start with.
+        break :elf_file resolveShebangELF("/usr/bin/env") catch {
+            // Attempt to resolve $PREFIX/bin/env instead.
+            // This is used by non-root-based environments like Termux on Android.
+            const prefix = posix.getenv("PREFIX") orelse {
+                std.log.warn("Could not resolve /usr/bin/env and $PREFIX is not set, falling back to default ABI and dynamic linker.\n", .{});
+                return defaultAbiAndDynamicLinker(cpu, os, query);
             };
-            var is_elf_file = false;
-            defer if (is_elf_file == false) file.close();
-
-            // Shortest working interpreter path is "#!/i" (4)
-            // (interpreter is "/i", assuming all paths are absolute, like in above comment).
-            // ELF magic number length is also 4.
-            //
-            // If file is shorter than that, it is definitely not ELF file
-            // nor file with "shebang" line.
-            const min_len: usize = 4;
-
-            const len = preadAtLeast(file, &buffer, 0, min_len) catch |err| switch (err) {
-                error.UnexpectedEndOfFile,
-                error.UnableToReadElfFile,
-                => return defaultAbiAndDynamicLinker(cpu, os, query),
-
-                else => |e| return e,
-            };
-            const content = buffer[0..len];
-
-            if (mem.eql(u8, content[0..4], std.elf.MAGIC)) {
-                // It is very likely ELF file!
-                is_elf_file = true;
-                break :elf_file file;
-            } else if (mem.eql(u8, content[0..2], "#!")) {
-                // We detected shebang, now parse entire line.
-
-                // Trim leading "#!", spaces and tabs.
-                const trimmed_line = mem.trimLeft(u8, content[2..], &.{ ' ', '\t' });
-
-                // This line can have:
-                // * Interpreter path only,
-                // * Interpreter path and arguments, all separated by space, tab or NUL character.
-                // And optionally newline at the end.
-                const path_maybe_args = mem.trimRight(u8, trimmed_line, "\n");
-
-                // Separate path and args.
-                const path_end = mem.indexOfAny(u8, path_maybe_args, &.{ ' ', '\t', 0 }) orelse path_maybe_args.len;
-
-                file_name = path_maybe_args[0..path_end];
-                continue;
-            } else {
-                // Not a ELF file, not a shell script with "shebang line", invalid duck.
+            if (!std.fs.path.isAbsolute(prefix)) {
+                std.log.warn("Could not resolve /usr/bin/env and $PREFIX is not a valid path, falling back to default ABI and dynamic linker.\n", .{});
                 return defaultAbiAndDynamicLinker(cpu, os, query);
             }
-        }
+            var path_buf: [posix.PATH_MAX]u8 = undefined;
+            const path = std.fmt.bufPrint(&path_buf, "{s}/bin/env", .{prefix}) catch unreachable;
+            break :elf_file resolveShebangELF(path) catch {
+                std.log.warn("Could not resolve /usr/bin/env or $PREFIX/bin/env, falling back to default ABI and dynamic linker.\n", .{});
+                return defaultAbiAndDynamicLinker(cpu, os, query);
+            };
+        };
     };
     defer elf_file.close();
 

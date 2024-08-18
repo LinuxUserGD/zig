@@ -663,13 +663,13 @@ test "PackedInt(Array/Slice)Endian" {
 // don't account for the bounds.
 test "PackedIntArray at end of available memory" {
     switch (builtin.target.os.tag) {
-        .linux, .macos, .ios, .freebsd, .netbsd, .openbsd, .windows => {},
+        .linux, .android, .macos, .ios, .freebsd, .netbsd, .openbsd, .windows => {},
         else => return,
     }
     const PackedArray = PackedIntArray(u3, 8);
 
     const Padded = struct {
-        _: [std.mem.page_size - @sizeOf(PackedArray)]u8,
+        _: [std.heap.max_page_size - @sizeOf(PackedArray)]u8,
         p: PackedArray,
     };
 
@@ -682,16 +682,16 @@ test "PackedIntArray at end of available memory" {
 
 test "PackedIntSlice at end of available memory" {
     switch (builtin.target.os.tag) {
-        .linux, .macos, .ios, .freebsd, .netbsd, .openbsd, .windows => {},
+        .linux, .android, .macos, .ios, .freebsd, .netbsd, .openbsd, .windows => {},
         else => return,
     }
     const PackedSlice = PackedIntSlice(u11);
 
     const allocator = std.testing.allocator;
 
-    var page = try allocator.alloc(u8, std.mem.page_size);
+    var page = try allocator.alloc(u8, std.heap.pageSize());
     defer allocator.free(page);
 
-    var p = PackedSlice.init(page[std.mem.page_size - 2 ..], 1);
+    var p = PackedSlice.init(page[std.heap.pageSize() - 2 ..], 1);
     p.set(0, std.math.maxInt(u11));
 }

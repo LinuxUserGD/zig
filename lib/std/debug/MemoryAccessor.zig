@@ -7,27 +7,27 @@ const native_os = builtin.os.tag;
 const std = @import("../std.zig");
 const posix = std.posix;
 const File = std.fs.File;
-const page_size = std.mem.page_size;
+const min_page_size = std.heap.min_page_size;
 
 const MemoryAccessor = @This();
 
 var cached_pid: posix.pid_t = -1;
 
 mem: switch (native_os) {
-    .linux => File,
+    .linux, .android => File,
     else => void,
 },
 
 pub const init: MemoryAccessor = .{
     .mem = switch (native_os) {
-        .linux => .{ .handle = -1 },
+        .linux, .android => .{ .handle = -1 },
         else => {},
     },
 };
 
 fn read(ma: *MemoryAccessor, address: usize, buf: []u8) bool {
     switch (native_os) {
-        .linux => while (true) switch (ma.mem.handle) {
+        .linux, .android => while (true) switch (ma.mem.handle) {
             -2 => break,
             -1 => {
                 const linux = std.os.linux;
@@ -81,9 +81,9 @@ pub fn isValidMemory(address: usize) bool {
     // We are unable to determine validity of memory for freestanding targets
     if (native_os == .freestanding or native_os == .uefi) return true;
 
-    const aligned_address = address & ~@as(usize, @intCast((page_size - 1)));
+    const aligned_address = address & ~(std.heap.pageSize() - 1);
     if (aligned_address == 0) return false;
-    const aligned_memory = @as([*]align(page_size) u8, @ptrFromInt(aligned_address))[0..page_size];
+    const aligned_memory = @as([*]align(min_page_size) u8, @ptrFromInt(aligned_address))[0..std.heap.pageSize()];
 
     if (native_os == .windows) {
         const windows = std.os.windows;

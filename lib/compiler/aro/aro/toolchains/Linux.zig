@@ -380,7 +380,7 @@ pub fn defineSystemIncludes(self: *const Linux, tc: *const Toolchain) !void {
 
     // musl prefers /usr/include before builtin includes, so musl targets will add builtins
     // at the end of this function (unless disabled with nostdlibinc)
-    if (!tc.driver.nobuiltininc and (!target.isMusl() or tc.driver.nostdlibinc)) {
+    if (!tc.driver.nobuiltininc and ((!target.isMusl() and !target.os.tag == .android) or tc.driver.nostdlibinc)) {
         try comp.addBuiltinIncludeDir(tc.driver.aro_name);
     }
 
@@ -411,7 +411,7 @@ pub fn defineSystemIncludes(self: *const Linux, tc: *const Toolchain) !void {
     try comp.addSystemIncludeDir("/usr/include");
 
     std.debug.assert(!tc.driver.nostdlibinc);
-    if (!tc.driver.nobuiltininc and target.isMusl()) {
+    if (!tc.driver.nobuiltininc and (target.isMusl() or target.os.tag == .android)) {
         try comp.addBuiltinIncludeDir(tc.driver.aro_name);
     }
 }

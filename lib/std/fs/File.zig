@@ -527,7 +527,7 @@ pub fn stat(self: File) StatError!Stat {
         return Stat.fromWasi(st);
     }
 
-    if (builtin.os.tag == .linux) {
+    if (builtin.os.tag == .linux or builtin.os.tag == .android) {
         var stx = std.mem.zeroes(linux.Statx);
 
         const rc = linux.statx(
@@ -747,7 +747,7 @@ pub const Metadata = struct {
     /// Exposes platform-specific functionality.
     inner: switch (builtin.os.tag) {
         .windows => MetadataWindows,
-        .linux => MetadataLinux,
+        .linux, .android => MetadataLinux,
         .wasi => MetadataWasi,
         else => MetadataUnix,
     },
@@ -1059,7 +1059,7 @@ pub fn metadata(self: File) MetadataError!Metadata {
                     .creation_time = windows.fromSysTime(info.BasicInformation.CreationTime),
                 };
             },
-            .linux => blk: {
+            .linux, .android => blk: {
                 var stx = std.mem.zeroes(linux.Statx);
 
                 // We are gathering information for Metadata, which is meant to contain all the

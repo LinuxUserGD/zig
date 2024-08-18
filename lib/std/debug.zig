@@ -2,6 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std.zig");
 const math = std.math;
 const mem = std.mem;
+const heap = std.heap;
 const io = std.io;
 const posix = std.posix;
 const fs = std.fs;
@@ -243,7 +244,6 @@ pub inline fn getContext(context: *ThreadContext) bool {
         windows.ntdll.RtlCaptureContext(context);
         return true;
     }
-
     const result = have_getcontext and posix.system.getcontext(context) == 0;
     if (native_os == .macos) {
         assert(context.mcsize == @sizeOf(std.c.mcontext_t));
@@ -956,7 +956,7 @@ fn printLineFromFileAnyOs(out_stream: anytype, source_location: SourceLocation) 
     defer f.close();
     // TODO fstat and make sure that the file has the correct size
 
-    var buf: [mem.page_size]u8 = undefined;
+    var buf: [heap.min_page_size]u8 align(heap.min_page_size) = undefined;
     var amt_read = try f.read(buf[0..]);
     const line_start = seek: {
         var current_line_start: usize = 0;
@@ -1059,7 +1059,7 @@ test printLineFromFileAnyOs {
 
         const overlap = 10;
         var writer = file.writer();
-        try writer.writeByteNTimes('a', mem.page_size - overlap);
+        try writer.writeByteNTimes('a', heap.pageSize() - overlap);
         try writer.writeByte('\n');
         try writer.writeByteNTimes('a', overlap);
 
@@ -1074,10 +1074,10 @@ test printLineFromFileAnyOs {
         defer allocator.free(path);
 
         var writer = file.writer();
-        try writer.writeByteNTimes('a', mem.page_size);
+        try writer.writeByteNTimes('a', heap.max_page_size);
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** mem.page_size) ++ "\n", output.items);
+        try expectEqualStrings(("a" ** heap.max_page_size) ++ "\n", output.items);
         output.clearRetainingCapacity();
     }
     {
@@ -1087,18 +1087,18 @@ test printLineFromFileAnyOs {
         defer allocator.free(path);
 
         var writer = file.writer();
-        try writer.writeByteNTimes('a', 3 * mem.page_size);
+        try writer.writeByteNTimes('a', 3 * heap.max_page_size);
 
         try expectError(error.EndOfFile, printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 2, .column = 0 }));
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** (3 * mem.page_size)) ++ "\n", output.items);
+        try expectEqualStrings(("a" ** (3 * heap.max_page_size)) ++ "\n", output.items);
         output.clearRetainingCapacity();
 
         try writer.writeAll("a\na");
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 1, .column = 0 });
-        try expectEqualStrings(("a" ** (3 * mem.page_size)) ++ "a\n", output.items);
+        try expectEqualStrings(("a" ** (3 * heap.max_page_size)) ++ "a\n", output.items);
         output.clearRetainingCapacity();
 
         try printLineFromFileAnyOs(output_stream, .{ .file_name = path, .line = 2, .column = 0 });
@@ -1112,7 +1112,7 @@ test printLineFromFileAnyOs {
         defer allocator.free(path);
 
         var writer = file.writer();
-        const real_file_start = 3 * mem.page_size;
+        const real_file_start = 3 * heap.pageSize();
         try writer.writeByteNTimes('\n', real_file_start);
         try writer.writeAll("abc\ndef");
 
@@ -1141,6 +1141,7 @@ fn getDebugInfoAllocator() mem.Allocator {
 /// Whether or not the current target can print useful debug information when a segfault occurs.
 pub const have_segfault_handling_support = switch (native_os) {
     .linux,
+    .android,
     .macos,
     .netbsd,
     .solaris,
@@ -1211,7 +1212,7 @@ fn handleSegfaultPosix(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopa
     resetSegfaultHandler();
 
     const addr = switch (native_os) {
-        .linux => @intFromPtr(info.fields.sigfault.addr),
+        .linux, .android => @intFromPtr(info.fields.sigfault.addr),
         .freebsd, .macos => @intFromPtr(info.addr),
         .netbsd => @intFromPtr(info.info.reason.fault.addr),
         .openbsd => @intFromPtr(info.data.fault.addr),
@@ -1249,7 +1250,7 @@ fn handleSegfaultPosix(sig: i32, info: *const posix.siginfo_t, ctx_ptr: ?*anyopa
 fn dumpSegfaultInfoPosix(sig: i32, code: i32, addr: usize, ctx_ptr: ?*anyopaque) void {
     const stderr = io.getStdErr().writer();
     _ = switch (sig) {
-        posix.SIG.SEGV => if (native_arch == .x86_64 and native_os == .linux and code == 128) // SI_KERNEL
+        posix.SIG.SEGV => if (native_arch == .x86_64 and (native_os == .linux or native_os == .android) and code == 128) // SI_KERNEL
             // x86_64 doesn't have a full 64-bit virtual address space.
             // Addresses outside of that address space are non-canonical
             // and the CPU won't provide the faulting address to us.

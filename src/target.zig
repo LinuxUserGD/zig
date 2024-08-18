@@ -37,12 +37,12 @@ pub fn libcNeedsLibUnwind(target: std.Target) bool {
 }
 
 pub fn requiresPIE(target: std.Target) bool {
-    return target.isAndroid() or target.isDarwin() or target.os.tag == .openbsd;
+    return target.os.tag == .android or target.isAndroid() or target.isDarwin() or target.os.tag == .openbsd;
 }
 
 /// This function returns whether non-pic code is completely invalid on the given target.
 pub fn requiresPIC(target: std.Target, linking_libc: bool) bool {
-    return target.isAndroid() or
+    return target.os.tag == .android or target.isAndroid() or
         target.os.tag == .windows or target.os.tag == .uefi or
         osRequiresLibC(target) or
         (linking_libc and target.isGnuLibC()) or
@@ -86,7 +86,7 @@ pub fn hasValgrindSupport(target: std.Target) bool {
         .aarch64,
         .aarch64_be,
         => {
-            return target.os.tag == .linux or target.os.tag == .solaris or target.os.tag == .illumos or
+            return target.os.tag == .linux or target.os.tag == .android or target.os.tag == .solaris or target.os.tag == .illumos or
                 (target.os.tag == .windows and target.abi != .msvc);
         },
         else => return false,
@@ -291,6 +291,38 @@ pub fn libcFullLinkFlags(target: std.Target) []const []const u8 {
             "-lpthread",
             "-lc",
             "-lutil",
+        },
+        .android => &[_][]const u8{
+            "--sysroot=/data/data/com.termux/files",
+            "-rpath=/data/data/com.termux/files/usr/lib",
+            switch (target.cpu.arch) {
+                .x86_64, .aarch64 => "-rpath=/apex/com.android.runtime/lib64/bionic",
+                .x86, .arm => "-rpath=/apex/com.android.runtime/lib/bionic",
+                else => "",
+            },
+            "-dynamic-linker",
+            switch (target.cpu.arch) {
+                .x86_64, .aarch64 => "/system/bin/linker64",
+                .x86, .arm => "/system/bin/linker32",
+                else => "",
+            },
+            "-L/data/data/com.termux/files/usr/lib",
+            switch (target.cpu.arch) {
+                .x86_64 => "-L/data/data/com.termux/files/usr/x86_64-linux-android/lib",
+                .aarch64 => "-L/data/data/com.termux/files/usr/aarch64-linux-android/lib",
+                .x86 => "-L/data/data/com.termux/files/usr/x86-linux-android/lib",
+                .arm => "-L/data/data/com.termux/files/usr/arm-linux-androideabi/lib",
+                else => "",
+            },
+            switch (target.cpu.arch) {
+                .x86_64, .aarch64 => "-L/system/lib64",
+                .x86, .arm => "-L/system/lib",
+                else => "",
+            },
+            "-lc++_shared",
+            "-lm",
+            "-lc",
+            "-ldl",
         },
         .solaris, .illumos => &[_][]const u8{
             "-lm",

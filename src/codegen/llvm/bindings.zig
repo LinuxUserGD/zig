@@ -345,6 +345,7 @@ pub const OSType = enum(c_int) {
     MacOSX,
     NetBSD,
     OpenBSD,
+    Android,
     Solaris,
     UEFI,
     Win32,

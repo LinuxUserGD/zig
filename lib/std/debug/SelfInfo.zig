@@ -45,6 +45,7 @@ pub fn open(allocator: Allocator) OpenError!SelfInfo {
             return error.MissingDebugInfo;
         switch (native_os) {
             .linux,
+            .android,
             .freebsd,
             .netbsd,
             .dragonfly,
@@ -502,7 +503,7 @@ pub const Module = switch (native_os) {
     .macos, .ios, .watchos, .tvos, .visionos => struct {
         base_address: usize,
         vmaddr_slide: usize,
-        mapped_memory: []align(mem.page_size) const u8,
+        mapped_memory: []align(std.heap.min_page_size) const u8,
         symbols: []const MachoSymbol,
         strings: [:0]const u8,
         ofiles: OFileTable,
@@ -792,7 +793,7 @@ pub const Module = switch (native_os) {
             };
         }
     },
-    .linux, .netbsd, .freebsd, .dragonfly, .openbsd, .haiku, .solaris, .illumos => Dwarf.ElfModule,
+    .linux, .android, .netbsd, .freebsd, .dragonfly, .openbsd, .haiku, .solaris, .illumos => Dwarf.ElfModule,
     .wasi, .emscripten => struct {
         pub fn deinit(self: *@This(), allocator: Allocator) void {
             _ = self;
@@ -1044,7 +1045,7 @@ pub fn readElfDebugInfo(
     build_id: ?[]const u8,
     expected_crc: ?u32,
     parent_sections: *Dwarf.SectionArray,
-    parent_mapped_mem: ?[]align(mem.page_size) const u8,
+    parent_mapped_mem: ?[]align(std.heap.min_page_size) const u8,
 ) !Dwarf.ElfModule {
     nosuspend {
         const elf_file = (if (elf_filename) |filename| blk: {
@@ -1086,7 +1087,7 @@ const MachoSymbol = struct {
 
 /// Takes ownership of file, even on error.
 /// TODO it's weird to take ownership even on error, rework this code.
-fn mapWholeFile(file: File) ![]align(mem.page_size) const u8 {
+fn mapWholeFile(file: File) ![]align(std.heap.min_page_size) const u8 {
     nosuspend {
         defer file.close();
 
@@ -1778,19 +1779,19 @@ comptime {
 pub fn supportsUnwinding(target: std.Target) bool {
     return switch (target.cpu.arch) {
         .x86 => switch (target.os.tag) {
-            .linux, .netbsd, .solaris, .illumos => true,
+            .linux, .android, .netbsd, .solaris, .illumos => true,
             else => false,
         },
         .x86_64 => switch (target.os.tag) {
-            .linux, .netbsd, .freebsd, .openbsd, .macos, .ios, .solaris, .illumos => true,
+            .linux, .android, .netbsd, .freebsd, .openbsd, .macos, .ios, .solaris, .illumos => true,
             else => false,
         },
         .arm => switch (target.os.tag) {
-            .linux => true,
+            .linux, .android => true,
             else => false,
         },
         .aarch64 => switch (target.os.tag) {
-            .linux, .netbsd, .freebsd, .macos, .ios => true,
+            .linux, .android, .netbsd, .freebsd, .macos, .ios => true,
             else => false,
         },
         // Unwinding is possible on other targets but this implementation does

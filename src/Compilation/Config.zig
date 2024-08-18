@@ -383,7 +383,7 @@ pub fn resolve(options: Options) ResolveError!Config {
         if (options.link_mode) |link_mode| break :b link_mode;
 
         if (explicitly_exe_or_dyn_lib and link_libc and
-            options.resolved_target.is_native_abi and target.abi.isMusl())
+            options.resolved_target.is_native_abi and (target.abi.isMusl() or target.os.tag == .android))
         {
             // If targeting the system's native ABI and the system's libc is
             // musl, link dynamically by default.

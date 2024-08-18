@@ -247,7 +247,7 @@ pub const File = struct {
                         try emit.root_dir.handle.copyFile(emit.sub_path, emit.root_dir.handle, tmp_sub_path, .{});
                         try emit.root_dir.handle.rename(tmp_sub_path, emit.sub_path);
                         switch (builtin.os.tag) {
-                            .linux => std.posix.ptrace(std.os.linux.PTRACE.ATTACH, pid, 0, 0) catch |err| {
+                            .linux, .android => std.posix.ptrace(std.os.linux.PTRACE.ATTACH, pid, 0, 0) catch |err| {
                                 log.warn("ptrace failure: {s}", .{@errorName(err)});
                             },
                             .macos => base.cast(.macho).?.ptraceAttach(pid) catch |err| {
@@ -299,7 +299,7 @@ pub const File = struct {
 
                 if (base.child_pid) |pid| {
                     switch (builtin.os.tag) {
-                        .linux => std.posix.ptrace(std.os.linux.PTRACE.DETACH, pid, 0, 0) catch |err| {
+                        .linux, .android => std.posix.ptrace(std.os.linux.PTRACE.DETACH, pid, 0, 0) catch |err| {
                             log.warn("ptrace failure: {s}", .{@errorName(err)});
                         },
                         else => return error.HotSwapUnavailableOnHostOperatingSystem,

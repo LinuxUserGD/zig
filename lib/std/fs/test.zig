@@ -221,7 +221,7 @@ test "File.stat on a File that is a symlink returns Kind.sym_link" {
     // This test requires getting a file descriptor of a symlink which
     // is not possible on all targets
     switch (builtin.target.os.tag) {
-        .windows, .linux => {},
+        .windows, .linux, .android => {},
         else => return error.SkipZigTest,
     }
 
@@ -275,7 +275,7 @@ test "File.stat on a File that is a symlink returns Kind.sym_link" {
                         else => return windows.unexpectedStatus(rc),
                     }
                 },
-                .linux => linux_symlink: {
+                .linux, .android => linux_symlink: {
                     const sub_path_c = try posix.toPosixPath("symlink");
                     // the O_NOFOLLOW | O_PATH combination can obtain a fd to a symlink
                     // note that if O_DIRECTORY is set, then this will error with ENOTDIR
@@ -587,7 +587,7 @@ test "Dir.Iterator but dir is deleted during iteration" {
     try std.testing.expect(entry == null);
 
     // On Linux, we can opt-in to receiving a more specific error by calling `nextLinux`
-    if (native_os == .linux) {
+    if (native_os == .linux or native_os == .android) {
         try std.testing.expectError(error.DirNotFound, iterator.nextLinux());
     }
 }

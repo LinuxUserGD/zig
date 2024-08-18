@@ -27,6 +27,7 @@ pub const Os = struct {
         aix,
         haiku,
         hurd,
+        android,
         linux,
         plan9,
         rtems,
@@ -200,7 +201,7 @@ pub const Os = struct {
                 .wasi,
                 => .semver,
 
-                .linux => .linux,
+                .linux, .android => .linux,
 
                 .windows => .windows,
             };
@@ -208,7 +209,7 @@ pub const Os = struct {
 
         pub fn archName(tag: Tag, arch: Cpu.Arch) [:0]const u8 {
             return switch (tag) {
-                .linux => switch (arch) {
+                .linux, .android => switch (arch) {
                     .arm, .armeb, .thumb, .thumbeb => "arm",
                     .aarch64, .aarch64_be => "aarch64",
                     .loongarch32, .loongarch64 => "loongarch",
@@ -497,7 +498,7 @@ pub const Os = struct {
                     },
                 },
 
-                .linux => .{
+                .linux, .android => .{
                     .linux = .{
                         .range = .{
                             .min = .{ .major = 4, .minor = 19, .patch = 0 },
@@ -535,6 +536,7 @@ pub const Os = struct {
         none: void,
         semver: std.SemanticVersion.Range,
         linux: LinuxVersionRange,
+        android: LinuxVersionRange,
         windows: WindowsVersion.Range,
     };
 
@@ -545,6 +547,7 @@ pub const Os = struct {
             .none => .{ .none = {} },
             .semver => .{ .semver = os.version_range.semver },
             .linux => .{ .linux = os.version_range.linux },
+            .android => .{ .android = os.version_range.linux },
             .windows => .{ .windows = os.version_range.windows },
         };
     }
@@ -553,13 +556,13 @@ pub const Os = struct {
     /// Returns `null` if a runtime check is required.
     pub inline fn isAtLeast(os: Os, comptime tag: Tag, ver: switch (tag.getVersionRangeTag()) {
         .none => void,
-        .semver, .linux => std.SemanticVersion,
+        .semver, .linux, .android => std.SemanticVersion,
         .windows => WindowsVersion,
     }) ?bool {
         return if (os.tag != tag) false else switch (tag.getVersionRangeTag()) {
             .none => true,
             inline .semver,
-            .linux,
+            .linux, .android,
             .windows,
             => |field| @field(os.version_range, @tagName(field)).isAtLeast(ver),
         };
@@ -574,6 +577,7 @@ pub const Os = struct {
             .aix,
             .netbsd,
             .driverkit,
+            .android,
             .macos,
             .ios,
             .tvos,
@@ -725,6 +729,7 @@ pub const Abi = enum {
             .opengl,
             .vulkan,
             .plan9, // TODO specify abi
+            .android,
             .macos,
             .ios,
             .tvos,
@@ -751,6 +756,13 @@ pub const Abi = enum {
             .gnux32,
             .gnuilp32,
             => true,
+            else => false,
+        };
+    }
+
+    pub inline fn isBionic(abi: Abi) bool {
+        return switch (abi) {
+            .android => true,
             else => false,
         };
     }
@@ -1613,7 +1625,7 @@ pub inline fn isMusl(target: Target) bool {
 }
 
 pub inline fn isAndroid(target: Target) bool {
-    return target.abi == .android;
+    return target.os.tag == .android or target.abi.isBionic();
 }
 
 pub inline fn isWasm(target: Target) bool {
@@ -1731,6 +1743,7 @@ pub const DynamicLinker = struct {
             if (cpu.arch.isArmOrThumb() and abi.floatAbi() == .hard) "hf" else "",
         }) catch unreachable else switch (os_tag) {
             .freebsd => init("/libexec/ld-elf.so.1"),
+            .android => init("/system/bin/linker64"),
             .netbsd => init("/libexec/ld.elf_so"),
             .openbsd => init("/usr/libexec/ld.so"),
             .dragonfly => init("/libexec/ld-elf.so.2"),
@@ -2099,7 +2112,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
                 .longdouble => switch (target.cpu.arch) {
                     .x86 => switch (target.abi) {
                         .android => return 64,
-                        else => return 80,
+                        else => if (target.os.tag == .android) return 64 else return 80,
                     },
 
                     .powerpc,
@@ -2135,6 +2148,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
 
         .linux,
         .freebsd,
+        .android,
         .netbsd,
         .dragonfly,
         .openbsd,
@@ -2187,7 +2201,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
                 .longdouble => switch (target.cpu.arch) {
                     .x86 => switch (target.abi) {
                         .android => return 64,
-                        else => return 80,
+                        else => if (target.os.tag == .android) return 64 else return 80,
                     },
 
                     .powerpc,
@@ -2296,7 +2310,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
             .longdouble => switch (target.cpu.arch) {
                 .x86 => switch (target.abi) {
                     .android => return 64,
-                    else => return 80,
+                    else => if (target.os.tag == .android) return 64 else return 80,
                 },
                 .x86_64 => return 80,
                 else => return 64,

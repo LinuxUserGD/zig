@@ -72,7 +72,7 @@ else if (builtin.os.tag == .windows)
     WindowsImpl
 else if (builtin.os.tag.isDarwin())
     DarwinImpl
-else if (builtin.os.tag == .linux)
+else if (builtin.os.tag == .linux or builtin.os.tag == .android)
     LinuxImpl
 else if (builtin.os.tag == .freebsd)
     FreebsdImpl
