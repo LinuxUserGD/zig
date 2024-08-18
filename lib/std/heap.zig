@@ -89,7 +89,7 @@ pub const min_page_size: usize = switch (builtin.os.tag) {
         .sparc64 => missing_min_page_size,
         else => missing_min_page_size,
     },
-    .linux => switch (builtin.cpu.arch) {
+    .linux, .android => switch (builtin.cpu.arch) {
         .x86, .x86_64 => 4 << 10,
         .thumb, .thumbeb, .arm, .armeb, .aarch64, .aarch64_be => 4 << 10,
         // Explicitly only 4kb.
