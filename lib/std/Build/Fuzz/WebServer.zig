@@ -32,7 +32,7 @@ coverage_mutex: std.Thread.Mutex,
 coverage_condition: std.Thread.Condition,
 
 const CoverageMap = struct {
-    mapped_memory: []align(std.mem.page_size) const u8,
+    mapped_memory: []align(std.heap.min_page_size) const u8,
     coverage: Coverage,
     source_locations: []Coverage.SourceLocation,
     /// Elements are indexes into `source_locations` pointing to the unit tests that are being fuzz tested.
