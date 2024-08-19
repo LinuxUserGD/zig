@@ -1032,17 +1032,17 @@ fn detectAbiAndDynamicLinker(
             // This is used by non-root-based environments like Termux on Android.
             const prefix = std.os.getenv("PREFIX") orelse {
                 std.log.warn("Could not resolve /usr/bin/env and $PREFIX is not set, falling back to default ABI and dynamic linker.\n", .{});
-                return defaultAbiAndDynamicLinker(cpu, os, cross_target);
+                return defaultAbiAndDynamicLinker(cpu, os, query);
             };
             if (!std.fs.path.isAbsolute(prefix)) {
                 std.log.warn("Could not resolve /usr/bin/env and $PREFIX is not a valid path, falling back to default ABI and dynamic linker.\n", .{});
-                return defaultAbiAndDynamicLinker(cpu, os, cross_target);
+                return defaultAbiAndDynamicLinker(cpu, os, query);
             }
             var path_buf: [std.os.PATH_MAX]u8 = undefined;
             const path = std.fmt.bufPrint(&path_buf, "{s}/bin/env", .{prefix}) catch unreachable;
             break :elf_file resolveShebangELF(path) catch {
                 std.log.warn("Could not resolve /usr/bin/env or $PREFIX/bin/env, falling back to default ABI and dynamic linker.\n", .{});
-                return defaultAbiAndDynamicLinker(cpu, os, cross_target);
+                return defaultAbiAndDynamicLinker(cpu, os, query);
             };
         };
     };
