@@ -113,7 +113,7 @@ pub const ResourceUsageStatistics = struct {
     /// if available.
     pub inline fn getMaxRss(rus: ResourceUsageStatistics) ?usize {
         switch (native_os) {
-            .linux, .android => {
+            .linux => {
                 if (rus.rusage) |ru| {
                     return @as(usize, @intCast(ru.maxrss)) * 1024;
                 } else {
@@ -140,7 +140,7 @@ pub const ResourceUsageStatistics = struct {
     }
 
     const rusage_init = switch (native_os) {
-        .linux, .android, .macos, .ios => @as(?posix.rusage, null),
+        .linux, .macos, .ios => @as(?posix.rusage, null),
         .windows => @as(?windows.VM_COUNTERS, null),
         else => {},
     };
@@ -456,7 +456,7 @@ fn waitUnwrapped(self: *ChildProcess) !void {
     const res: posix.WaitPidResult = res: {
         if (self.request_resource_usage_statistics) {
             switch (native_os) {
-                .linux, .android, .macos, .ios => {
+                .linux, .macos, .ios => {
                     var ru: posix.rusage = undefined;
                     const res = posix.wait4(self.id, 0, &ru);
                     self.resource_usage_statistics.rusage = ru;
@@ -496,7 +496,7 @@ fn cleanupAfterWait(self: *ChildProcess, status: u32) !Term {
     if (self.err_pipe) |err_pipe| {
         defer destroyPipe(err_pipe);
 
-        if (native_os == .linux or native_os == .android) {
+        if (native_os == .linux) {
             var fd = [1]posix.pollfd{posix.pollfd{
                 .fd = err_pipe[0],
                 .events = posix.POLL.IN,
@@ -644,7 +644,7 @@ fn spawnPosix(self: *ChildProcess) SpawnError!void {
     // This pipe is used to communicate errors between the time of fork
     // and execve from the child process to the parent process.
     const err_pipe = blk: {
-        if (native_os == .linux or native_os == .android) {
+        if (native_os == .linux) {
             const fd = try posix.eventfd(0, linux.EFD.CLOEXEC);
             // There's no distinction between the readable and the writeable
             // end with eventfd

@@ -1616,7 +1616,7 @@ pub fn posixGetUserInfo(name: []const u8) !UserInfo {
 
 pub fn getBaseAddress() usize {
     switch (native_os) {
-        .linux, .android => {
+        .linux => {
             const base = std.os.linux.getauxval(std.elf.AT_BASE);
             if (base != 0) {
                 return base;
@@ -1709,7 +1709,7 @@ pub const TotalSystemMemoryError = error{
 /// using QEMU user mode emulation.
 pub fn totalSystemMemory() TotalSystemMemoryError!u64 {
     switch (native_os) {
-        .linux, .android => {
+        .linux => {
             return totalSystemMemoryLinux() catch return error.UnknownTotalSystemMemory;
         },
         .freebsd => {

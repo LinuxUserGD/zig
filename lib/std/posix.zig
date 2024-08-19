@@ -665,7 +665,7 @@ pub fn abort() noreturn {
         }
         windows.kernel32.ExitProcess(3);
     }
-    if (!builtin.link_libc and (native_os == .linux or native_os == .android)) {
+    if (!builtin.link_libc and (native_os == .linux)) {
         // The Linux man page says that the libc abort() function
         // "first unblocks the SIGABRT signal", but this is a footgun
         // for user-defined signal handlers that want to restore some state in
@@ -718,7 +718,7 @@ pub fn raise(sig: u8) RaiseError!void {
         }
     }
 
-    if (native_os == .linux or native_os == .android) {
+    if (native_os == .linux) {
         var set: sigset_t = undefined;
         // block application signals
         sigprocmask(SIG.BLOCK, &linux.app_mask, &set);
@@ -761,7 +761,7 @@ pub fn exit(status: u8) noreturn {
     if (native_os == .wasi) {
         wasi.proc_exit(status);
     }
-    if (native_os == .linux or native_os == .android and !builtin.single_threaded) {
+    if (native_os == .linux and !builtin.single_threaded) {
         linux.exit_group(status);
     }
     if (native_os == .uefi) {
@@ -3475,7 +3475,7 @@ pub fn isatty(handle: fd_t) bool {
 
         return true;
     }
-    if (native_os == .linux or native_os == .android) {
+    if (native_os == .linux) {
         while (true) {
             var wsz: winsize = undefined;
             const fd: usize = @bitCast(@as(isize, handle));
@@ -5101,7 +5101,7 @@ pub const SeekError = error{
 
 /// Repositions read/write file offset relative to the beginning.
 pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
-    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, offset, &result, SEEK.SET))) {
             .SUCCESS => return,
@@ -5144,7 +5144,7 @@ pub fn lseek_SET(fd: fd_t, offset: u64) SeekError!void {
 
 /// Repositions read/write file offset relative to the current offset.
 pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
-    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @bitCast(offset), &result, SEEK.CUR))) {
             .SUCCESS => return,
@@ -5186,7 +5186,7 @@ pub fn lseek_CUR(fd: fd_t, offset: i64) SeekError!void {
 
 /// Repositions read/write file offset relative to the end.
 pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
-    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, @bitCast(offset), &result, SEEK.END))) {
             .SUCCESS => return,
@@ -5228,7 +5228,7 @@ pub fn lseek_END(fd: fd_t, offset: i64) SeekError!void {
 
 /// Returns the read/write file offset relative to the beginning.
 pub fn lseek_CUR_get(fd: fd_t) SeekError!u64 {
-    if ((native_os == .linux or native_os == .android) and !builtin.link_libc and @sizeOf(usize) == 4) {
+    if (native_os == .linux and !builtin.link_libc and @sizeOf(usize) == 4) {
         var result: u64 = undefined;
         switch (errno(system.llseek(fd, 0, &result, SEEK.CUR))) {
             .SUCCESS => return result,
@@ -5779,7 +5779,7 @@ pub fn gethostname(name_buffer: *[HOST_NAME_MAX]u8) GetHostNameError![]u8 {
             else => |err| return unexpectedErrno(err),
         }
     }
-    if (native_os == .linux or native_os == .android) {
+    if (native_os == .linux) {
         const uts = uname();
         const hostname = mem.sliceTo(&uts.nodename, 0);
         const result = name_buffer[0..hostname.len];
