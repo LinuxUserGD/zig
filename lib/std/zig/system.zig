@@ -930,11 +930,12 @@ fn glibcVerFromSoFile(file: fs.File) !std.SemanticVersion {
 fn resolveShebangELF(start_file_name: []const u8) !fs.File {
     // #! (2) + 255 (max length of shebang line since Linux 5.1) + \n (1)
     var buffer: [258]u8 = undefined;
+    const min_len: usize = 4;
     var file_name = start_file_name;
     while (true) {
         const file = try fs.openFileAbsolute(file_name, .{});
         errdefer file.close();
-        const len = preadMin(file, &buffer, 0, buffer.len) catch |err| switch (err) {
+        const len = preadAtLeast(file, &buffer, 0, min_len) catch |err| switch (err) {
             error.UnexpectedEndOfFile,
             error.UnableToReadElfFile,
             => return file,
@@ -1026,7 +1027,7 @@ fn detectAbiAndDynamicLinker(
     const elf_file = elf_file: {
         // This block looks for /usr/bin/env (or the file it references through a shebang) and uses that as the ELF file to examine.
         // Since /usr/bin/env is hard-coded into the shebang line of many portable scripts, it's a reasonably reliable path to start with.
-        break :blk resolveShebangELF("/usr/bin/env") catch {
+        break :elf_file resolveShebangELF("/usr/bin/env") catch {
             // Attempt to resolve $PREFIX/bin/env instead.
             // This is used by non-root-based environments like Termux on Android.
             const prefix = std.os.getenv("PREFIX") orelse {
@@ -1039,7 +1040,7 @@ fn detectAbiAndDynamicLinker(
             }
             var path_buf: [std.os.PATH_MAX]u8 = undefined;
             const path = std.fmt.bufPrint(&path_buf, "{s}/bin/env", .{prefix}) catch unreachable;
-            break :blk resolveShebangELF(path) catch {
+            break :elf_file resolveShebangELF(path) catch {
                 std.log.warn("Could not resolve /usr/bin/env or $PREFIX/bin/env, falling back to default ABI and dynamic linker.\n", .{});
                 return defaultAbiAndDynamicLinker(cpu, os, cross_target);
             };
