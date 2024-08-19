@@ -1732,7 +1732,7 @@ pub const DynamicLinker = struct {
     }
 
     pub fn standard(cpu: Cpu, os_tag: Os.Tag, abi: Abi) DynamicLinker {
-        return if (os_tag == .android or abi == .android) initFmt("/system/bin/linker{s}", .{
+        return if (abi == .android) initFmt("/system/bin/linker{s}", .{
             if (ptrBitWidth_cpu_abi(cpu, abi) == 64) "64" else "",
         }) catch unreachable else if (abi.isMusl()) return initFmt("/lib/ld-musl-{s}{s}.so.1", .{
             @tagName(switch (cpu.arch) {
@@ -1743,11 +1743,12 @@ pub const DynamicLinker = struct {
             if (cpu.arch.isArmOrThumb() and abi.floatAbi() == .hard) "hf" else "",
         }) catch unreachable else switch (os_tag) {
             .freebsd => init("/libexec/ld-elf.so.1"),
+            .android => init("/system/bin/linker64"),
             .netbsd => init("/libexec/ld.elf_so"),
             .openbsd => init("/usr/libexec/ld.so"),
             .dragonfly => init("/libexec/ld-elf.so.2"),
             .solaris, .illumos => init("/lib/64/ld.so.1"),
-            .linux, .android => switch (cpu.arch) {
+            .linux => switch (cpu.arch) {
                 .x86,
                 .sparc,
                 => init("/lib/ld-linux.so.2"),
@@ -2111,7 +2112,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
                 .longdouble => switch (target.cpu.arch) {
                     .x86 => switch (target.abi) {
                         .android => return 64,
-                        else => return 80,
+                        else => if (target.os.tag == .android) return 64 else return 80,
                     },
 
                     .powerpc,
@@ -2200,7 +2201,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
                 .longdouble => switch (target.cpu.arch) {
                     .x86 => switch (target.abi) {
                         .android => return 64,
-                        else => return 80,
+                        else => if (target.os.tag == .android) return 64 else return 80,
                     },
 
                     .powerpc,
@@ -2309,7 +2310,7 @@ pub fn cTypeBitSize(target: Target, c_type: CType) u16 {
             .longdouble => switch (target.cpu.arch) {
                 .x86 => switch (target.abi) {
                     .android => return 64,
-                    else => return 80,
+                    else => if (target.os.tag == .android) return 64 else return 80,
                 },
                 .x86_64 => return 80,
                 else => return 64,
@@ -2633,7 +2634,7 @@ pub fn is_libc_lib_name(target: std.Target, name: []const u8) bool {
         return false;
     }
 
-    if (target.abi.isGnu() or target.abi.isMusl() or target.os.tag == .android) {
+    if (target.abi.isGnu() or target.abi.isMusl()) {
         if (eqlIgnoreCase(ignore_case, name, "m"))
             return true;
         if (eqlIgnoreCase(ignore_case, name, "rt"))
@@ -2650,7 +2651,7 @@ pub fn is_libc_lib_name(target: std.Target, name: []const u8) bool {
             return true;
     }
 
-    if (target.abi.isMusl() or target.os.tag == .android) {
+    if (target.abi.isMusl()) {
         if (eqlIgnoreCase(ignore_case, name, "crypt"))
             return true;
     }
