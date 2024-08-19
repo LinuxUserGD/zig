@@ -18,6 +18,9 @@ pub fn build(b: *std.Build) !void {
     const target = t: {
         var default_target: std.Target.Query = .{};
         default_target.ofmt = b.option(std.Target.ObjectFormat, "ofmt", "Object format to target") orelse if (only_c) .c else null;
+        if default_target.result.os.tag == .android {
+            default_target.dynamic_linker=std.Target.DynamicLinker.init("/system/bin/linker64");
+        }
         break :t b.standardTargetOptions(.{ .default_target = default_target });
     };
 
