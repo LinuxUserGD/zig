@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    if (target.result.ofmt != .elf or !(target.result.abi.isMusl() or target.result.abi.isGnu() or target.os.tag == .android))
+    if (target.result.ofmt != .elf or !(target.result.abi.isMusl() or target.result.abi.isGnu()))
         return;
 
     const exe = b.addExecutable(.{
