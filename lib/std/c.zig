@@ -52,7 +52,7 @@ comptime {
 pub inline fn versionCheck(comptime glibc_version: std.SemanticVersion) bool {
     return comptime blk: {
         if (!builtin.link_libc) break :blk false;
-        if (native_abi.isMusl() or native_os == .android) break :blk true;
+        if (native_abi.isMusl()) break :blk true;
         if (builtin.target.isGnuLibC()) {
             const ver = builtin.os.version_range.linux.glibc;
             const order = ver.order(glibc_version);
@@ -8882,7 +8882,7 @@ pub extern "c" fn sendfile64(out_fd: fd_t, in_fd: fd_t, offset: ?*i64, count: us
 pub extern "c" fn setrlimit64(resource: rlimit_resource, rlim: *const rlimit) c_int;
 
 pub const arc4random_buf = switch (native_os) {
-    .dragonfly, .netbsd, .freebsd, .solaris, .openbsd, .macos, .ios, .tvos, .watchos, .visionos => private.arc4random_buf,
+    .dragonfly, .netbsd, .freebsd, .android, .solaris, .openbsd, .macos, .ios, .tvos, .watchos, .visionos => private.arc4random_buf,
     else => {},
 };
 pub const getentropy = switch (native_os) {
@@ -8890,8 +8890,8 @@ pub const getentropy = switch (native_os) {
     else => {},
 };
 pub const getrandom = switch (native_os) {
-    .freebsd => private.getrandom,
-    .linux, .android => if (versionCheck(.{ .major = 2, .minor = 25, .patch = 0 })) private.getrandom else {},
+    .freebsd, .android => private.getrandom,
+    .linux => if (versionCheck(.{ .major = 2, .minor = 25, .patch = 0 })) private.getrandom else {},
     else => {},
 };
 
@@ -8950,7 +8950,7 @@ pub const pipe2 = switch (native_os) {
     else => {},
 };
 pub const copy_file_range = switch (native_os) {
-    .linux => private.copy_file_range,
+    .linux, .android => private.copy_file_range,
     .freebsd => freebsd.copy_file_range,
     else => {},
 };

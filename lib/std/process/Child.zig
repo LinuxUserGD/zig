@@ -113,7 +113,7 @@ pub const ResourceUsageStatistics = struct {
     /// if available.
     pub inline fn getMaxRss(rus: ResourceUsageStatistics) ?usize {
         switch (native_os) {
-            .linux => {
+            .linux, .android => {
                 if (rus.rusage) |ru| {
                     return @as(usize, @intCast(ru.maxrss)) * 1024;
                 } else {
@@ -140,7 +140,7 @@ pub const ResourceUsageStatistics = struct {
     }
 
     const rusage_init = switch (native_os) {
-        .linux, .macos, .ios => @as(?posix.rusage, null),
+        .linux, .android, .macos, .ios => @as(?posix.rusage, null),
         .windows => @as(?windows.VM_COUNTERS, null),
         else => {},
     };
@@ -456,7 +456,7 @@ fn waitUnwrapped(self: *ChildProcess) !void {
     const res: posix.WaitPidResult = res: {
         if (self.request_resource_usage_statistics) {
             switch (native_os) {
-                .linux, .macos, .ios => {
+                .linux, .android, .macos, .ios => {
                     var ru: posix.rusage = undefined;
                     const res = posix.wait4(self.id, 0, &ru);
                     self.resource_usage_statistics.rusage = ru;

@@ -352,7 +352,7 @@ pub inline fn fchmodat(dirfd: fd_t, path: []const u8, mode: mode_t, flags: u32) 
 
     // No special handling for linux is needed if we can use the libc fallback
     // or `flags` is empty. Glibc only added the fallback in 2.32.
-    const skip_fchmodat_fallback = native_os != .android and (native_os != .linux or
+    const skip_fchmodat_fallback = native_os == .android or (native_os != .linux or
         std.c.versionCheck(.{ .major = 2, .minor = 32, .patch = 0 }) or
         flags == 0);
 
@@ -604,7 +604,7 @@ pub fn getrandom(buffer: []u8) GetRandomError!void {
     };
     if (@TypeOf(system.getrandom) != void) {
         var buf = buffer;
-        const use_c = (native_os != .linux and native_os != .android) or
+        const use_c = native_os == .android or native_os != .linux or
             std.c.versionCheck(std.SemanticVersion{ .major = 2, .minor = 25, .patch = 0 });
 
         while (buf.len != 0) {
@@ -6463,6 +6463,7 @@ pub const CopyFileRangeError = error{
 /// Maximum offsets on Linux and FreeBSD are `maxInt(i64)`.
 pub fn copy_file_range(fd_in: fd_t, off_in: u64, fd_out: fd_t, off_out: u64, len: usize, flags: u32) CopyFileRangeError!usize {
     if ((comptime builtin.os.isAtLeast(.freebsd, .{ .major = 13, .minor = 0, .patch = 0 }) orelse false) or
+        (comptime builtin.os.tag == .android) or
         (comptime builtin.os.tag == .linux and std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 })))
     {
         var off_in_copy: i64 = @bitCast(off_in);
@@ -6770,7 +6771,7 @@ pub fn memfd_createZ(name: [*:0]const u8, flags: u32) MemFdCreateError!fd_t {
     switch (native_os) {
         .linux, .android => {
             // memfd_create is available only in glibc versions starting with 2.27.
-            const use_c = native_os != .android and std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
+            const use_c = native_os == .android or std.c.versionCheck(.{ .major = 2, .minor = 27, .patch = 0 });
             const sys = if (use_c) std.c else linux;
             const rc = sys.memfd_create(name, flags);
             switch (errno(rc)) {
