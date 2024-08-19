@@ -294,7 +294,7 @@ pub fn libcFullLinkFlags(target: std.Target) []const []const u8 {
                 .x86, .arm => "-rpath=/apex/com.android.runtime/lib/bionic",
                 else => "",
             },
-            "--dynamic-linker=",
+            "-dynamic-linker",
             switch (target.cpu.arch) {
                 .x86_64, .aarch64 => "/system/bin/linker64",
                 .x86, .arm => "/system/bin/linker32",
